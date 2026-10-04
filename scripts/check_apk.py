@@ -11,7 +11,7 @@ parser.add_argument("apk", type=Path)
 args = parser.parse_args()
 with ZipFile(args.apk) as bundle:
     names = set(bundle.namelist())
-    for notice in ("assets/licenses/LICENSE", "assets/licenses/THIRD_PARTY_NOTICES.md"):
+    for notice in ("assets/sources.json", "assets/licenses/LICENSE", "assets/licenses/THIRD_PARTY_NOTICES.md"):
         if notice not in names:
             raise SystemExit("Missing license notice: " + notice)
     abis = ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
@@ -28,4 +28,10 @@ with ZipFile(args.apk) as bundle:
         for required in ("yt_dlp_ejs/yt/solver/core.min.js", "yt_dlp_ejs/yt/solver/lib.min.js"):
             if required not in backend.namelist():
                 raise SystemExit("Missing EJS resource: " + required)
+        for site in ("youtube", "instagram", "twitter", "facebook", "tiktok", "twitch"):
+            if f"yt_dlp/extractor/{site}.py" not in backend.namelist() and f"yt_dlp/extractor/{site}/__init__.py" not in backend.namelist():
+                raise SystemExit("Missing source extractor: " + site)
+    catalog = json.loads(bundle.read("assets/sources.json"))
+    if {source["id"] for source in catalog["sources"]} != {"youtube", "instagram", "twitter", "facebook", "tiktok", "twitch"}:
+        raise SystemExit("Unexpected source catalog")
 print(json.dumps({"apk_bytes": args.apk.stat().st_size, "abis": abis, "bundled_yt_dlp": version, "ejs_present": True}))

@@ -79,13 +79,20 @@ public class MainActivity extends Activity {
     private volatile HttpURLConnection previewConnection;
     private String previewTarget = "", thumbnailAddress = "";
     private boolean previewAvailable;
+    private SourcePolicy sourcePolicy;
+    private MediaMetadata.Post postInfo;
+    private MediaMetadata.Job previewMetadataJob, explicitMetadataJob;
+    private Integer selectedPostIndex;
+    private Button postButton;
+    private LinearLayout postBox;
+    private TextView sourceHelp, qualityText;
     private final String[] values = {"mp4", "mp3", "webm", "mkv", "gif", "wav"};
     private final String[] descriptions = {"MP4 · Vídeo", "MP3 · Áudio", "WEBM · Vídeo", "MKV · Vídeo", "GIF · Animação", "WAV · Áudio"};
     private int selectedIndex;
     private int bg, glow, panel, field, border, text, muted, accent, selected, error;
     private SharedPreferences preferences;
     private boolean light, working;
-    private volatile boolean destroyed, backendReady;
+    private volatile boolean destroyed;
     private volatile int thumbnailGeneration;
     private volatile HttpURLConnection thumbnailConnection;
     private ScrollView scrollView;
@@ -104,6 +111,8 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try { sourcePolicy = MediaMetadata.loadPolicy(this); }
+        catch (Exception error) { toast("Não foi possível carregar as fontes do aplicativo."); finish(); return; }
         preferences = getSharedPreferences("appearance", MODE_PRIVATE);
         light = preferences.getBoolean("light", false);
         buildUi();
@@ -221,7 +230,17 @@ public class MainActivity extends Activity {
         pasteParams.setMargins(dp(8), 0, 0, 0);
         urlRow.addView(buttonPaste, pasteParams);
         buttonPaste.setOnClickListener(view -> pasteLink());
-        add(form, urlRow, 20);
+        add(form, urlRow, 10);
+        sourceHelp = text(sourcePolicy.help(), 12, "muted");
+        add(form, sourceHelp, 14);
+        postBox = column();
+        add(postBox, text("Vídeos deste post", 14, "label"), 8);
+        postButton = button("Todos os vídeos", "button");
+        postButton.setContentDescription("Escolher vídeos deste post");
+        postButton.setOnClickListener(view -> choosePostVideo());
+        add(postBox, postButton, 0);
+        postBox.setVisibility(View.GONE);
+        add(form, postBox, 12);
         add(form, text("Formato de saída", 14, "label"), 10);
         for (int rowIndex = 0; rowIndex < 2; rowIndex++) {
             LinearLayout formats = row();
@@ -237,7 +256,8 @@ public class MainActivity extends Activity {
             }
             add(form, formats, 8);
         }
-        add(form, text("Melhor qualidade disponível", 13, "muted"), 18);
+        qualityText = text("Melhor qualidade disponível", 13, "muted");
+        add(form, qualityText, 18);
         gifBox = column();
         add(gifBox, text("Intervalo do GIF", 14, "label"), 10);
         LinearLayout times = row();
@@ -299,7 +319,7 @@ public class MainActivity extends Activity {
         buttonOpen.setEnabled(false);
         status.addView(buttonOpen, fullWidthHeight(dp(48)));
         buttonOpen.setOnClickListener(view -> openFile());
-        TextView footer = artworkCaption("UIfor_yt-dlp · v3 · GPLv3\nDesenvolvido principalmente com IA", 12);
+        TextView footer = artworkCaption("UIfor_yt-dlp · V3.3 · GPLv3\nDesenvolvido principalmente com IA", 12);
         footer.setGravity(Gravity.CENTER);
         add(root, footer, 0);
         updateFormatUi();
@@ -424,9 +444,9 @@ public class MainActivity extends Activity {
     }
 
     private void showAbout() {
-        String message = "UIfor_yt-dlp · v3\nVídeos, áudio e GIFs\nLicença GPLv3 · Vinícius\n\n"
+        String message = "UIfor_yt-dlp · V3.3\nVídeos, áudio e GIFs\nLicença GPLv3 · Vinícius\n\n"
                 + "O projeto começou sem inteligência artificial e era fechado. A IA passou a produzir sua evolução inicialmente como um experimento de capacidade de modelos, principalmente da OpenAI, e depois se tornou a principal forma de desenvolvimento e manutenção. A interface e as integrações de download são produzidas de maneira amplamente autônoma, com orientação humana e pouca edição direta do código. A primeira versão disponibilizada publicamente é a v3.\n\n"
-                + "As bibliotecas têm seus próprios autores e licenças. Os downloads são executados por yt-dlp e FFmpeg; não dependem de um modelo de IA.\n\nNesta etapa, o suporte continua restrito ao YouTube.";
+                + "As bibliotecas têm seus próprios autores e licenças. Os downloads são executados por yt-dlp e FFmpeg; não dependem de um modelo de IA.\n\nFontes integradas: " + sourcePolicy.help() + ". Links públicos individuais e playlists do YouTube. A disponibilidade depende do site e do link.";
         TextView dialogTitle = text("Sobre", 20, "title");
         dialogTitle.setPadding(dp(24), dp(22), dp(24), dp(8));
         dialogTitle.setTextColor(text);
@@ -444,6 +464,7 @@ public class MainActivity extends Activity {
         String format = selectedFormat();
         gifBox.setVisibility("gif".equals(format) ? View.VISIBLE : View.GONE);
         formatText.setText(descriptions[selectedIndex]);
+        qualityText.setText("webm".equals(selectedFormat()) ? "WEBM: conversão quando necessária; pode demorar mais" : "Melhor qualidade disponível");
         if (!working) buttonDownload.setText("gif".equals(format) ? "Gerar GIF" : "mp3".equals(format) || "wav".equals(format) ? "Extrair áudio" : "Baixar vídeo");
     }
 
@@ -464,7 +485,8 @@ public class MainActivity extends Activity {
         if (working) return;
         errorText.setVisibility(View.GONE);
         String url = normalizeUrl(inputUrl.getText().toString());
-        if (!isYoutubeUrl(url)) { showError("Informe um link válido do YouTube."); inputUrl.requestFocus(); return; }
+        SourcePolicy.Match source = sourcePolicy.classify(url);
+        if (source == null) { showError("Informe um link de vídeo de uma das fontes aceitas. Perfis, stories e outras fontes ficam para uma próxima etapa."); inputUrl.requestFocus(); return; }
         String format = selectedFormat();
         Double gifStart = null, gifEnd = null;
         if ("gif".equals(format)) {
@@ -474,7 +496,11 @@ public class MainActivity extends Activity {
                 validateGifRange(gifStart, gifEnd);
             } catch (IllegalArgumentException ex) { showError(ex.getMessage()); return; }
         }
-        boolean playlist = checkPlaylist.isChecked();
+        if (!source.source.id.equals("youtube") && postInfo == null) { lookupPostExplicit(url); return; }
+        MediaMetadata.Post capturedPost = postInfo;
+        Integer capturedSelection = selectedPostIndex;
+        String downloadUrl = capturedPost != null ? capturedPost.url : url;
+        boolean playlist = source.source.id.equals("youtube") && checkPlaylist.isChecked();
         Double finalGifStart = gifStart, finalGifEnd = gifEnd;
         File workDir = new File(getCacheDir(), "yt_download_work");
         lastSavedUri = null;
@@ -490,12 +516,13 @@ public class MainActivity extends Activity {
             int savedCount = 0;
             try {
                 ensureDownloaderReady();
-                updateYtDlpIfPossible();
                 deleteTree(workDir);
                 if (!workDir.mkdirs() && !workDir.isDirectory()) throw new IllegalStateException("Não foi possível preparar a pasta temporária.");
-                YoutubeDLRequest request = buildRequest(url, format, workDir, playlist, finalGifStart, finalGifEnd);
+                YoutubeDLRequest request = buildRequest(downloadUrl, format, workDir, playlist, finalGifStart, finalGifEnd, capturedPost, capturedSelection);
                 updateStatus("Lendo informações da mídia…", true);
                 String processId = "download-" + System.currentTimeMillis();
+                Exception transferError = null;
+                try {
                 YoutubeDL.getInstance().execute(request, processId, true, (progress, eta, line) -> {
                     if (line != null && line.startsWith(META_PREFIX)) {
                         readMetadata(line.substring(META_PREFIX.length()));
@@ -519,8 +546,15 @@ public class MainActivity extends Activity {
                     }
                     return Unit.INSTANCE;
                 });
-                List<File> outputs = listOutputFiles(workDir);
-                if (outputs.isEmpty()) throw new IllegalStateException("Download terminou, mas nenhum arquivo final foi encontrado.");
+                } catch (Exception error) {
+                    if (capturedPost == null) throw error;
+                    transferError = error;
+                }
+                List<File> outputs = listOutputFiles(workDir, format);
+                if (outputs.isEmpty()) {
+                    if (transferError != null) throw transferError;
+                    throw new IllegalStateException("Download terminou, mas nenhum arquivo final foi encontrado.");
+                }
                 Uri savedUri = null;
                 String savedMime = null;
                 for (File output : outputs) {
@@ -528,7 +562,11 @@ public class MainActivity extends Activity {
                     savedMime = mimeFor(output);
                     savedUri = publishToDownloads(output, output.getName(), savedMime);
                     savedCount++;
+                    lastSavedUri = savedUri;
+                    lastSavedMime = savedMime;
                 }
+                if (transferError != null) throw new IllegalStateException("Download parcial: " + savedCount
+                        + " arquivo(s) salvo(s). Alguns vídeos do post falharam; os arquivos concluídos foram preservados.");
                 int count = savedCount;
                 Uri finalUri = savedUri;
                 String finalMime = savedMime;
@@ -543,7 +581,10 @@ public class MainActivity extends Activity {
                     buttonOpen.setText(count == 1 ? "Abrir arquivo" : "Abrir último arquivo");
                 });
             } catch (Exception ex) {
-                String message = cleanError(ex);
+                String rawMessage = cleanError(ex);
+                String message = rawMessage.startsWith("Download parcial:") ? rawMessage
+                        : (savedCount > 0 ? savedCount + " arquivo(s) já salvo(s).\n" : "")
+                          + SourcePolicy.friendlyError(rawMessage, source.source.name);
                 ui(() -> {
                     resultTitle.setText("Não foi possível concluir");
                     progressBar.setIndeterminate(false);
@@ -577,6 +618,8 @@ public class MainActivity extends Activity {
 
     private void cancelPreviewLookup() {
         previewGeneration++;
+        if (previewMetadataJob != null) previewMetadataJob.cancel();
+        previewMetadataJob = null;
         previewHandler.removeCallbacks(previewLookup);
         if (previewTask != null) previewTask.cancel(true);
         HttpURLConnection previous = previewConnection;
@@ -595,11 +638,19 @@ public class MainActivity extends Activity {
 
     private void schedulePreview() {
         if (working || destroyed) return;
-        String target = previewVideoUrl(inputUrl.getText().toString());
+        SourcePolicy.Match source = sourcePolicy.classify(inputUrl.getText().toString());
+        String target = source == null ? "" : source.source.id.equals("youtube")
+                ? previewVideoUrl(source.url) : source.url;
+        sourceHelp.setText(source == null ? sourcePolicy.help() : source.source.name
+                + (source.source.experimental ? " · Experimental" : "") + " · Link público");
+        checkPlaylist.setVisibility(source == null || source.source.id.equals("youtube") ? View.VISIBLE : View.GONE);
         if (target.equals(previewTarget)) return;
         cancelPreviewLookup();
         previewTarget = target;
         previewAvailable = false;
+        postInfo = null;
+        selectedPostIndex = null;
+        postBox.setVisibility(View.GONE);
         clearMediaPreview();
         if (!target.isEmpty()) previewHandler.postDelayed(previewLookup, 450);
     }
@@ -608,7 +659,22 @@ public class MainActivity extends Activity {
         if (working || destroyed || previewTarget.isEmpty()) return;
         String target = previewTarget;
         int generation = previewGeneration;
-        previewTask = previewExecutor.submit(() -> fetchPreview(target, generation));
+        SourcePolicy.Match source = sourcePolicy.classify(target);
+        if (source != null && !source.source.id.equals("youtube")) {
+            MediaMetadata.Job job = new MediaMetadata.Job();
+            previewMetadataJob = job;
+            previewTask = previewExecutor.submit(() -> {
+                try {
+                    MediaMetadata.Post info = job.lookup(getApplicationContext(), sourcePolicy, target, null);
+                    ui(() -> {
+                        if (!working && generation == previewGeneration && target.equals(previewTarget)) acceptPostInfo(info);
+                    });
+                } catch (Exception ignored) { /* Optional preview stays silent. */ }
+            });
+            previewHandler.postDelayed(() -> {
+                if (generation == previewGeneration && !previewAvailable) cancelPreviewLookup();
+            }, 12000);
+        } else previewTask = previewExecutor.submit(() -> fetchPreview(target, generation));
     }
 
     private void fetchPreview(String target, int generation) {
@@ -771,7 +837,7 @@ public class MainActivity extends Activity {
 
     private void setWorking(boolean value, String message) {
         working = value;
-        for (View control : new View[]{buttonDownload, buttonPaste, checkPlaylist, inputUrl, inputGifInicio, inputGifFim}) control.setEnabled(!working);
+        for (View control : new View[]{buttonDownload, buttonPaste, checkPlaylist, postButton, inputUrl, inputGifInicio, inputGifFim}) control.setEnabled(!working);
         for (Button format : formatButtons) format.setEnabled(!working);
         buttonOpen.setEnabled(!working && lastSavedUri != null);
         if (working) {
@@ -806,32 +872,83 @@ public class MainActivity extends Activity {
         destroyed = true;
         cancelPreviewLookup();
         previewExecutor.shutdownNow();
+        if (explicitMetadataJob != null) explicitMetadataJob.cancel();
         thumbnailGeneration++;
         HttpURLConnection connection = thumbnailConnection;
         if (connection != null) connection.disconnect();
         thumbnailExecutor.shutdownNow();
         executor.shutdownNow();
-        mediaBackground.clear();
+        if (mediaBackground != null) mediaBackground.clear();
         super.onDestroy();
     }
 
-    private synchronized void ensureDownloaderReady() throws Exception {
-        if (backendReady) {
-            return;
-        }
-        updateStatus("Inicializando yt-dlp e FFmpeg...", true);
-        YoutubeDL.getInstance().init(getApplicationContext());
-        FFmpeg.getInstance().init(getApplicationContext());
-        backendReady = true;
+    private void ensureDownloaderReady() throws Exception {
+        MediaMetadata.prepare(getApplicationContext(), message -> updateStatus(message, true));
     }
 
-    private void updateYtDlpIfPossible() {
-        try {
-            updateStatus("Atualizando yt-dlp...", true);
-            YoutubeDL.getInstance().updateYoutubeDL(getApplicationContext(), YoutubeDL.UpdateChannel._STABLE);
-        } catch (Exception ignored) {
-            updateStatus("Usando yt-dlp empacotado...", true);
+    private void lookupPostExplicit(String url) {
+        cancelPreviewLookup();
+        setWorking(true, "Lendo vídeos do post…");
+        MediaMetadata.Job job = new MediaMetadata.Job();
+        explicitMetadataJob = job;
+        Runnable timeout = job::cancel;
+        previewHandler.postDelayed(timeout, 45000);
+        executor.execute(() -> {
+            try {
+                MediaMetadata.Post info = job.lookup(getApplicationContext(), sourcePolicy, url, message -> updateStatus(message, true));
+                ui(() -> {
+                    setWorking(false, "Escolha um vídeo ou todos e clique em Baixar.");
+                    acceptPostInfo(info);
+                    if (info.videos.size() == 1) startDownload();
+                });
+            } catch (Exception error) {
+                SourcePolicy.Match match = sourcePolicy.classify(url);
+                String message = SourcePolicy.friendlyError(cleanError(error), match != null ? match.source.name : "essa fonte");
+                ui(() -> { setWorking(false, "Não foi possível ler o post."); showError(message); });
+            } finally { previewHandler.removeCallbacks(timeout); explicitMetadataJob = null; }
+        });
+    }
+
+    private void acceptPostInfo(MediaMetadata.Post info) {
+        postInfo = info;
+        SourcePolicy.Match source = sourcePolicy.classify(info.url);
+        if (source != null) sourceHelp.setText(source.source.name + (source.source.experimental ? " · Experimental" : "") + " · Link público");
+        selectedPostIndex = null;
+        previewAvailable = true;
+        postBox.setVisibility(info.videos.size() > 1 ? View.VISIBLE : View.GONE);
+        showPostSelection();
+    }
+
+    private void choosePostVideo() {
+        if (postInfo == null || working) return;
+        MediaMetadata.Post info = postInfo;
+        String[] labels = new String[info.videos.size() + 1];
+        labels[0] = "Todos os vídeos (" + info.videos.size() + ")";
+        int selected = 0;
+        for (int n = 0; n < info.videos.size(); n++) {
+            JSONObject item = info.videos.get(n);
+            labels[n + 1] = "Vídeo " + (n + 1) + " — " + item.optString("title", "Vídeo");
+            if (selectedPostIndex != null && selectedPostIndex == item.optInt("index")) selected = n + 1;
         }
+        new AlertDialog.Builder(this).setTitle("Vídeos deste post").setSingleChoiceItems(labels, selected, (dialog, index) -> {
+            if (postInfo == info) {
+                selectedPostIndex = index == 0 ? null : info.videos.get(index - 1).optInt("index");
+                showPostSelection();
+            }
+            dialog.dismiss();
+        }).setNegativeButton("Fechar", null).show();
+    }
+
+    private void showPostSelection() {
+        if (postInfo == null) return;
+        JSONObject selected = postInfo.videos.get(0);
+        int ordinal = 1;
+        for (int n = 0; n < postInfo.videos.size(); n++) {
+            JSONObject item = postInfo.videos.get(n);
+            if (selectedPostIndex != null && selectedPostIndex == item.optInt("index")) { selected = item; ordinal = n + 1; break; }
+        }
+        postButton.setText(selectedPostIndex == null ? "Todos os vídeos (" + postInfo.videos.size() + ")" : "Vídeo " + ordinal);
+        showMetadata(selected.optString("title", "Vídeo"), selected.isNull("thumbnail") ? "" : selected.optString("thumbnail", ""));
     }
 
     private YoutubeDLRequest buildRequest(
@@ -840,7 +957,9 @@ public class MainActivity extends Activity {
             File workDir,
             boolean playlist,
             Double gifStart,
-            Double gifEnd
+            Double gifEnd,
+            MediaMetadata.Post post,
+            Integer selection
     ) {
         YoutubeDLRequest request = new YoutubeDLRequest(url);
         request.addOption("--newline");
@@ -868,8 +987,10 @@ public class MainActivity extends Activity {
                 request.addOption("--audio-format", "wav");
                 break;
             case "webm":
-                request.addOption("-f", "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best");
-                request.addOption("--merge-output-format", "webm");
+                request.addOption("-f", "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/bestvideo*+bestaudio/best");
+                request.addOption("--merge-output-format", "webm/mp4/mkv");
+                request.addOption("--recode-video", "webm");
+                request.addOption("--postprocessor-args", "VideoConvertor+ffmpeg_o:-c:v libvpx-vp9 -crf 32 -b:v 0 -cpu-used 4 -c:a libopus");
                 break;
             case "mkv":
                 request.addOption("-f", "bestvideo*+bestaudio/best");
@@ -894,6 +1015,19 @@ public class MainActivity extends Activity {
                 break;
         }
 
+        if (post != null) {
+            List<String> indices = new ArrayList<>();
+            for (JSONObject item : post.videos) {
+                int index = item.optInt("index");
+                if (selection == null || selection == index) indices.add(Integer.toString(index));
+            }
+            if (indices.isEmpty()) throw new IllegalArgumentException("Esse vídeo não está mais disponível. Cole o link novamente.");
+            request.addOption("--playlist-items", String.join(",", indices));
+            request.addOption("--use-extractors", sourcePolicy.extractors());
+            request.addOption("--match-filter", "!is_live");
+            if (selection == null && indices.size() > 1) request.addOption("--ignore-errors");
+            request.addOption("-o", new File(workDir, "%(id)s-%(playlist_index|1)s-%(title).90B.%(ext)s").getAbsolutePath());
+        }
         if (format.equals("mp4") || format.equals("mkv")) {
             request.addOption("--embed-thumbnail");
             request.addOption("--convert-thumbnails", "jpg");
@@ -908,14 +1042,12 @@ public class MainActivity extends Activity {
         return "%(title).90B.%(ext)s";
     }
 
-    private List<File> listOutputFiles(File workDir) {
+    private List<File> listOutputFiles(File workDir, String format) {
         List<File> files = new ArrayList<>();
         collectFiles(workDir, files);
         files.removeIf(file -> {
             String name = file.getName().toLowerCase(Locale.ROOT);
-            return !(name.endsWith(".mp4") || name.endsWith(".mp3")
-                    || name.endsWith(".webm") || name.endsWith(".mkv")
-                    || name.endsWith(".gif") || name.endsWith(".wav"))
+            return !SourcePolicy.finalOutput(name, format)
                     || name.contains(".temp.")
                     || name.endsWith(".part")
                     || name.endsWith(".ytdl")

@@ -9,7 +9,7 @@ binaries, datas = build_inputs(project_dir)
 
 a = Analysis(
     [str(project_dir / "baixar_musica_qt.py")],
-    pathex=[str(project_dir)],
+    pathex=[str(project_dir), str(project_dir.parent)],
     binaries=binaries,
     datas=datas,
     hiddenimports=[

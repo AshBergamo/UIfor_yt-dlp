@@ -94,10 +94,10 @@ def main():
     thread.start()
     results = []
     try:
-        for kind in ("mp4", "mp3", "webm", "mkv", "gif", "wav"):
-            output = work / kind
+        for kind, source, label in [(k, "source.webm" if k == "webm" else "source.mp4", k)
+                                    for k in ("mp4", "mp3", "webm", "mkv", "gif", "wav")] + [("webm", "source.mp4", "webm-from-mp4")]:
+            output = work / label
             output.mkdir(exist_ok=True)
-            source = "source.webm" if kind == "webm" else "source.mp4"
             options = app.criar_opcoes_download(kind, output, None, False, 1, 3)
             options.update(quiet=True, no_warnings=True, noprogress=True, overwrites=True)
             with app.YoutubeDL(options) as downloader:
@@ -113,7 +113,10 @@ def main():
                 assert abs(duration - 2) <= 0.2, (kind, duration)
             else:
                 assert 5.8 <= duration <= 6.4, (kind, duration)
-            result = {"format": kind, "duration": duration, "streams": sorted(streams), "bytes": files[0].stat().st_size}
+            if kind == "webm":
+                assert "webm" in data["format"]["format_name"], data
+                assert {st["codec_name"] for st in data["streams"]} == {"vp9", "opus"}, data
+            result = {"input": source, "format": kind, "duration": duration, "streams": sorted(streams), "bytes": files[0].stat().st_size}
             results.append(result)
             print(json.dumps(result), flush=True)
         validate_covers(app, work, server, ffmpeg, ffprobe)

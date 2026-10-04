@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                               QLabel, QLineEdit, QPushButton, QProgressBar, QFileDialog,
                               QMessageBox, QFrame, QSizePolicy, QScrollArea, QBoxLayout,
                               QGridLayout, QButtonGroup, QCheckBox, QStyle, QStyleOptionButton,
-                              QGraphicsScene, QGraphicsBlurEffect)
+                              QGraphicsScene, QGraphicsBlurEffect, QComboBox)
 
 try:
     from yt_dlp import YoutubeDL
@@ -24,6 +24,12 @@ try:
 except ImportError:
     YoutubeDL = None
     download_range_func = None
+
+if not getattr(sys, "frozen", False):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from media_sources import (classify_url, resolve_url, SOURCE_HELP, EXTRACTORS,
+                           selection_options, media_filter, friendly_error)
+from metadata_ipc import MetadataLookup, run_helper
 
 ARQUIVO_ICONE = "pixil-frame-0.png"
 DOMINIOS_YOUTUBE = ("youtube.com", "youtu.be")
@@ -115,6 +121,8 @@ def url_do_youtube(url):
 
 
 def url_tem_playlist(url):
+    if not url_do_youtube(url):
+        return False
     parametros = dict(parse_qsl(urlparse(url).query, keep_blank_values=True))
     return bool(parametros.get("list"))
 
@@ -141,6 +149,8 @@ def url_video_previa(url):
 
 
 def remover_playlist_da_url(url):
+    if not url_do_youtube(url):
+        return url
     parsed = urlparse(url)
     parametros = [
         (chave, valor)
@@ -215,6 +225,7 @@ def opcoes_base(
     postprocessor_hook=None,
     playlist=False,
     silencioso=False,
+    cookies=True,
 ):
     opcoes = {
         "noplaylist": not playlist,
@@ -241,9 +252,9 @@ def opcoes_base(
             os.environ["PATH"] = os.pathsep.join(
                 [diretorio_ffmpeg, *entradas_path]
             )
-    cookies = caminho_cookies()
-    if cookies is not None:
-        opcoes["cookiefile"] = str(cookies)
+    arquivo_cookies = caminho_cookies() if cookies else None
+    if arquivo_cookies is not None:
+        opcoes["cookiefile"] = str(arquivo_cookies)
     deno = caminho_ferramenta("deno")
     if deno is not None:
         opcoes["js_runtimes"] = {"deno": {"path": str(deno)}}
@@ -267,6 +278,8 @@ def criar_opcoes_download(
     inicio_gif=None,
     fim_gif=None,
     postprocessor_hook=None,
+    post_metadata=None,
+    selected_video=None,
 ):
     pasta_destino = Path(caminho)
     opcoes = opcoes_base(
@@ -308,8 +321,12 @@ def criar_opcoes_download(
         })
     elif formato == "webm":
         opcoes.update({
-            "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/best",
-            "merge_output_format": "webm",
+            "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/bestvideo*+bestaudio/best",
+            "merge_output_format": "webm/mp4/mkv",
+            "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "webm"}],
+            "postprocessor_args": {"videoconvertor+ffmpeg_o": [
+                "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-cpu-used", "4",
+                "-c:a", "libopus"]},
             "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
         })
     elif formato == "mkv":
@@ -349,6 +366,12 @@ def criar_opcoes_download(
             {"key": "FFmpegThumbnailsConvertor", "format": "jpg", "when": "before_dl"},
             {"key": "EmbedThumbnail", "already_have_thumbnail": False},
         ])
+    if post_metadata:
+        opcoes.update(selection_options(post_metadata, selected_video))
+        opcoes.update(allowed_extractors=EXTRACTORS, match_filter=media_filter,
+                      ignoreerrors=True if selected_video is None and len(post_metadata["videos"]) > 1 else False)
+        opcoes["outtmpl"] = str(pasta_destino / "%(id)s-%(playlist_index|1)s-%(title).150B.%(ext)s")
+
     return opcoes
 
 
@@ -368,6 +391,8 @@ class DownloadWorker(QObject):
         playlist,
         inicio_gif=None,
         fim_gif=None,
+        post_metadata=None,
+        selected_video=None,
     ):
         super().__init__()
         self.url = url
@@ -376,13 +401,16 @@ class DownloadWorker(QObject):
         self.playlist = playlist
         self.inicio_gif = inicio_gif
         self.fim_gif = fim_gif
+        self.post_metadata = post_metadata
+        self.selected_video = selected_video
+        self.saved_files = set()
         self._cancelado = False
 
     def cancelar(self):
         self._cancelado = True
 
     def run(self):
-        total_videos = 0
+        total_videos = len(self.post_metadata["videos"]) if self.post_metadata else 0
         self.status_atualizado.emit("Iniciando download...")
         self.progresso_atualizado.emit("Iniciando download...", 0, 100)
 
@@ -416,10 +444,11 @@ class DownloadWorker(QObject):
                 status = dados.get("status")
 
                 prefixo = ""
-                if self.playlist:
+                if self.playlist or (self.post_metadata and self.selected_video is None):
                     indice = dados.get("info_dict", {}).get("playlist_index")
                     if total_videos and indice:
-                        valor = min(indice, total_videos)
+                        valor = (next((n for n, item in enumerate(self.post_metadata["videos"], 1) if item["index"] == indice), indice)
+                                 if self.post_metadata else min(indice, total_videos))
                         prefixo = f"Vídeo {valor} de {total_videos} · "
                     else:
                         prefixo = "Playlist · mídia atual · "
@@ -453,6 +482,10 @@ class DownloadWorker(QObject):
                     self.status_atualizado.emit(mensagem)
                     self.progresso_atualizado.emit(mensagem, 0, 0)
                 elif status == "finished":
+                    info = dados.get("info_dict") or {}
+                    path = info.get("filepath")
+                    if path and Path(path).suffix == "." + self.formato:
+                        self.saved_files.add(path)
                     self.progresso_atualizado.emit("Finalizando...", 100, 100)
 
             try:
@@ -464,15 +497,20 @@ class DownloadWorker(QObject):
                     self.inicio_gif,
                     self.fim_gif,
                     hook_posprocessamento,
+                    self.post_metadata,
+                    self.selected_video,
                 )
                 if self.formato == "gif":
                     mensagem = "Baixando e recortando o trecho do vídeo..."
                     self.status_atualizado.emit(mensagem)
                     self.progresso_atualizado.emit(mensagem, 0, 0)
                 with YoutubeDL(opcoes) as ydl:
-                    ydl.download([self.url])
+                    code = ydl.download([self.url])
+                    if code:
+                        count = sum(Path(path).is_file() for path in self.saved_files)
+                        raise RuntimeError(f"Download parcial: {count} arquivo(s) salvo(s). Alguns vídeos do post falharam; os arquivos concluídos foram preservados.")
             except Exception as erro_download:
-                if self.formato != "mp4" or not erro_http_403(erro_download):
+                if self.formato != "mp4" or not url_do_youtube(self.url) or not erro_http_403(erro_download):
                     raise
 
                 tentativas_fallback = (
@@ -500,7 +538,10 @@ class DownloadWorker(QObject):
 
             self.download_concluido.emit()
         except Exception as erro:
-            self.download_erro.emit(limpar_mensagem_erro(erro))
+            source = classify_url(self.url)
+            message = limpar_mensagem_erro(erro)
+            self.download_erro.emit(message if message.startswith("Download parcial:") else
+                                    friendly_error(erro, source["name"] if source else "essa fonte"))
 
 
 THEMES = {
@@ -785,6 +826,8 @@ class JanelaPrincipal(QMainWindow):
         self._preview_target = ""
         self._preview_loaded = False
         self._preview_reply = None
+        self._preview_job = None
+        self._post_metadata = None
         self._preview_timer = QTimer(self)
         self._preview_timer.setSingleShot(True)
         self._preview_timer.setInterval(450)
@@ -911,6 +954,24 @@ class JanelaPrincipal(QMainWindow):
         url_row.addWidget(self.input_url, 1)
         url_row.addWidget(self.btn_colar)
         form.addLayout(url_row)
+        self.label_fonte = self._label(SOURCE_HELP, "Muted")
+        form.addWidget(self.label_fonte)
+        self._post_box = QWidget()
+        post_layout = QVBoxLayout(self._post_box)
+        post_layout.setContentsMargins(0, 0, 0, 0)
+        post_layout.addWidget(self._label("Vídeos deste post", "FieldLabel"))
+        self.combo_post = QComboBox()
+        self.combo_post.setMinimumHeight(48)
+        self.combo_post.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.combo_post.setMinimumContentsLength(16)
+        self.combo_post.setMinimumWidth(0)
+        self.combo_post.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.combo_post.setMaxVisibleItems(10)
+        self.combo_post.setAccessibleName("Vídeos deste post")
+        self.combo_post.currentIndexChanged.connect(self._selecionar_video_post)
+        post_layout.addWidget(self.combo_post)
+        self._post_box.hide()
+        form.addWidget(self._post_box)
         form.addWidget(self._label("Formato de saída", "FieldLabel"))
         self.combo_formato = FormatPicker()
         form.addWidget(self.combo_formato)
@@ -986,7 +1047,7 @@ class JanelaPrincipal(QMainWindow):
         layout.addLayout(self._columns)
         layout.addStretch()
         footer = QHBoxLayout()
-        footer.addWidget(artwork_caption("UIfor_yt-dlp · v3"))
+        footer.addWidget(artwork_caption("UIfor_yt-dlp · V3.3"))
         footer.addStretch()
         footer.addWidget(artwork_caption("Sobre · GPLv3"))
         layout.addLayout(footer)
@@ -1044,9 +1105,9 @@ class JanelaPrincipal(QMainWindow):
                             border-radius: 18px; }}
             QFrame#Panel[wallpaper="true"] {{ background: {glass_panel}; }}
             QFrame#Thumbnail {{ background: {c['field']}; border-radius: 10px; }}
-            QLineEdit {{ background: {c['field']}; color: {c['text']};
+            QLineEdit, QComboBox {{ background: {c['field']}; color: {c['text']};
                          border: 1px solid {c['border']}; border-radius: 9px; padding: 0 14px; }}
-            QLineEdit:focus {{ border: 2px solid {c['accent']}; }}
+            QLineEdit:focus, QComboBox:focus {{ border: 2px solid {c['accent']}; }}
             QPushButton {{ background: {c['field']}; color: {c['text']};
                            border: 1px solid {c['border']}; border-radius: 9px; padding: 8px 14px; }}
             QPushButton:hover {{ border-color: {c['accent']}; background: {c['selected']}; }}
@@ -1087,7 +1148,7 @@ class JanelaPrincipal(QMainWindow):
         box = QMessageBox(self)
         box.setWindowTitle("Sobre UIfor_yt-dlp")
         box.setTextFormat(Qt.TextFormat.PlainText)
-        box.setText("UIfor_yt-dlp · v3\nVídeos, áudio e GIFs\n\nLicença GNU GPLv3. "
+        box.setText("UIfor_yt-dlp · V3.3\nVídeos, áudio e GIFs\n\nLicença GNU GPLv3. "
                     "Extração/download: yt-dlp. Conversão: FFmpeg. Interface: PySide6/Qt.\n\n"
                     "O projeto começou fechado e sem IA. Modelos, principalmente da OpenAI, "
                     "foram usados inicialmente como experimento e se tornaram a principal forma "
@@ -1095,7 +1156,7 @@ class JanelaPrincipal(QMainWindow):
                     "A primeira versão pública é a v3.\n\n"
                     "Essa descrição se refere ao código deste aplicativo. As dependências mantêm "
                     "sua própria autoria. Nenhum modelo de IA executa os downloads.\n\n"
-                    "Nesta etapa, os links aceitos continuam sendo do YouTube.")
+                    "Fontes integradas: " + SOURCE_HELP + ".\nLinks públicos individuais; playlists do YouTube. A disponibilidade depende do site e do link.")
         box.exec()
 
     def _colar(self):
@@ -1134,7 +1195,7 @@ class JanelaPrincipal(QMainWindow):
         kind = "Áudio" if formato in {"mp3", "wav"} else "Animação" if formato == "gif" else "Vídeo"
         self.label_formato.setText(f"{formato.upper()} · {kind}")
         self.label_qualidade.setText("Trecho convertido em animação" if formato == "gif" else
-                                    "Extração de áudio" if kind == "Áudio" else "Melhor qualidade disponível")
+                                    "Extração de áudio" if kind == "Áudio" else "WEBM: conversão quando necessária; pode demorar mais" if formato == "webm" else "Melhor qualidade disponível")
         if not self._working:
             self.btn_baixar.setText(self._texto_botao_formato(formato))
 
@@ -1143,7 +1204,7 @@ class JanelaPrincipal(QMainWindow):
         if working:
             self._cancelar_previa()
         for control in (self.input_url, self.btn_colar, self.combo_formato, self.btn_pasta,
-                        self.input_gif_inicio, self.input_gif_fim, self.check_playlist, self.btn_baixar):
+                        self.input_gif_inicio, self.input_gif_fim, self.check_playlist, self.combo_post, self.btn_baixar):
             control.setEnabled(not working)
         if working:
             self.btn_baixar.setText("Processando…")
@@ -1163,8 +1224,9 @@ class JanelaPrincipal(QMainWindow):
         formato = self._formato_selecionado()
         inicio_gif = fim_gif = None
         self.label_erro.hide()
-        if not url or not url_do_youtube(url):
-            self._erro_validacao("Informe um link válido do YouTube. Outras fontes serão adicionadas em uma próxima etapa.", self.input_url)
+        source = classify_url(url)
+        if not source:
+            self._erro_validacao("Informe um link de vídeo de uma das fontes aceitas. Perfis, stories e outras fontes ficam para uma próxima etapa.", self.input_url)
             return
         if not self.pasta_selecionada:
             self._erro_validacao("Selecione uma pasta de destino.", self.btn_pasta)
@@ -1175,8 +1237,13 @@ class JanelaPrincipal(QMainWindow):
             except ValueError as error:
                 self._erro_validacao(str(error), self.input_gif_inicio)
                 return
-        playlist = self.check_playlist.isChecked() and url_tem_playlist(url)
-        if url_tem_playlist(url) and not playlist:
+        if source["id"] != "youtube" and self._post_metadata is None:
+            self._consultar_post(url, explicit=True)
+            return
+        if self._post_metadata:
+            url = self._post_metadata["url"]
+        playlist = source["id"] == "youtube" and self._post_metadata is None and self.check_playlist.isChecked() and url_tem_playlist(url)
+        if source["id"] == "youtube" and self._post_metadata is None and url_tem_playlist(url) and not playlist:
             answer = QMessageBox.question(self, "Playlist detectada", "Baixar todos os vídeos da playlist?",
                                           QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             playlist = answer == QMessageBox.StandardButton.Yes
@@ -1189,7 +1256,8 @@ class JanelaPrincipal(QMainWindow):
         self.label_ajuda.setText("A conversão começa após o download.")
         self.label_andamento.setText("Download em andamento")
         self._atualizar_progresso("Preparando…", 0, 0)
-        self.worker = DownloadWorker(url_download, self.pasta_selecionada, formato, playlist, inicio_gif, fim_gif)
+        self.worker = DownloadWorker(url_download, self.pasta_selecionada, formato, playlist, inicio_gif, fim_gif,
+                                     self._post_metadata, self.combo_post.currentData() if self._post_metadata else None)
         self.worker_thread = QThread(self)
         self.worker.moveToThread(self.worker_thread)
         self.worker.progresso_atualizado.connect(self._atualizar_progresso)
@@ -1241,9 +1309,16 @@ class JanelaPrincipal(QMainWindow):
         self.label_erro.setText(limpar_mensagem_erro(erro))
         self.label_erro.show()
         self._set_working(False)
+        if self.worker and any(Path(path).is_file() for path in self.worker.saved_files):
+            self.btn_abrir_pasta.setEnabled(True)
 
     def _cancelar_previa(self):
         self._preview_timer.stop()
+        job = self._preview_job
+        self._preview_job = None
+        if job:
+            job.cancel()
+            job.deleteLater()
         reply = self._preview_reply
         self._preview_reply = None
         if reply is not None:
@@ -1252,12 +1327,20 @@ class JanelaPrincipal(QMainWindow):
     def _agendar_previa(self):
         if self._working:
             return
-        target = url_video_previa(self.input_url.text())
+        source = classify_url(self.input_url.text())
+        target = (url_video_previa(self.input_url.text()) if source and source["id"] == "youtube"
+                  else source["url"] if source else "")
+        self.label_fonte.setText((source["name"] + (" · Experimental" if source["experimental"] else "") + " · Link público")
+                                 if source else SOURCE_HELP)
+        self.check_playlist.setVisible(not source or source["id"] == "youtube")
         if target == self._preview_target:
             return
         self._cancelar_previa()
         self._preview_target = target
         self._preview_loaded = False
+        self._post_metadata = None
+        self._post_box.hide()
+        self.combo_post.clear()
         self._limpar_thumbnail()
         self.label_midia.setText("A mídia aparecerá aqui")
         if target:
@@ -1269,6 +1352,10 @@ class JanelaPrincipal(QMainWindow):
     def _buscar_previa(self):
         target = self._preview_target
         if self._working or not target:
+            return
+        source = classify_url(target)
+        if source and source["id"] != "youtube":
+            self._consultar_post(target)
             return
         request = QNetworkRequest(self._url_consulta_previa(target))
         request.setTransferTimeout(5000)
@@ -1306,6 +1393,60 @@ class JanelaPrincipal(QMainWindow):
 
         reply.readyRead.connect(read)
         reply.finished.connect(finish)
+
+    def _consultar_post(self, target, explicit=False):
+        self._cancelar_previa()
+        if explicit:
+            self._set_working(True)
+            self.label_status.setText("Lendo vídeos do post…")
+        job = MetadataLookup(Path(__file__), target, 45000 if explicit else 12000, self)
+        self._preview_job = job
+
+        def complete(info=None, error=None):
+            if job is not self._preview_job:
+                return
+            self._preview_job = None
+            job.deleteLater()
+            if explicit:
+                self._set_working(False)
+            elif self._working or target != self._preview_target:
+                return
+            if error:
+                if explicit:
+                    self._erro_validacao(error, self.input_url)
+                return
+            self._post_metadata = info
+            source = classify_url(info["url"])
+            if source:
+                self.label_fonte.setText(source["name"] + (" · Experimental" if source["experimental"] else "") + " · Link público")
+            videos = info["videos"]
+            self.combo_post.blockSignals(True)
+            self.combo_post.clear()
+            self.combo_post.addItem(f"Todos os vídeos ({len(videos)})", None)
+            for ordinal, video in enumerate(videos, 1):
+                self.combo_post.addItem(f"Vídeo {ordinal} — {video['title']}", video["index"])
+            self.combo_post.setCurrentIndex(0)
+            self.combo_post.blockSignals(False)
+            self._post_box.setVisible(len(videos) > 1)
+            self._preview_loaded = True
+            self._selecionar_video_post()
+            if explicit:
+                if len(videos) == 1:
+                    self._iniciar_download()
+                else:
+                    self.label_status.setText("Escolha um vídeo ou todos e clique em Baixar.")
+
+        job.finished.connect(lambda info: complete(info=info))
+        job.failed.connect(lambda error: complete(error=error))
+        job.start()
+
+    def _selecionar_video_post(self):
+        if not self._post_metadata:
+            return
+        selected = self.combo_post.currentData()
+        videos = self._post_metadata["videos"]
+        video = next((item for item in videos if item["index"] == selected), videos[0])
+        self._atualizar_metadata(video)
 
     def _atualizar_metadata(self, info):
         title = str(info.get("title") or "Mídia em andamento")[:300]
@@ -1370,9 +1511,11 @@ class JanelaPrincipal(QMainWindow):
 
 
 def main():
+    if len(sys.argv) == 4 and sys.argv[1] == "--media-info":
+        return run_helper(sys.argv[2], sys.argv[3], opcoes_base(silencioso=True, cookies=False))
     app = QApplication(sys.argv)
     app.setApplicationName("UIfor_yt-dlp")
-    app.setApplicationVersion("3")
+    app.setApplicationVersion("3.3")
     app.setOrganizationName("UIfor_yt-dlp")
     app.setStyle("Fusion")
     app.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
@@ -1382,4 +1525,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "experimental": false,
+      "extractors": [
+        "youtube.*"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "youtube.com",
+            "youtu.be"
+          ],
+          "subdomains": true,
+          "path": "/.*"
+        }
+      ]
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "experimental": true,
+      "extractors": [
+        "tiktok",
+        "vm.tiktok"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "tiktok.com",
+            "tiktokv.com"
+          ],
+          "subdomains": true,
+          "path": "/(?:@[^/]+/video/[0-9]+|embed/(?:v2/)?[0-9]+|share/video/[0-9]+).*"
+        },
+        {
+          "hosts": [
+            "vm.tiktok.com",
+            "vt.tiktok.com"
+          ],
+          "path": "/[^/]+/?",
+          "short": true
+        },
+        {
+          "hosts": [
+            "tiktok.com"
+          ],
+          "subdomains": true,
+          "path": "/t/[^/]+/?",
+          "short": true
+        }
+      ]
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "experimental": false,
+      "extractors": [
+        "instagram"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "instagram.com"
+          ],
+          "subdomains": true,
+          "path": "/(?:(?!share/)[^/]+/)?(?:p|tv|reels?)/[^/]+/?"
+        },
+        {
+          "hosts": [
+            "instagram.com"
+          ],
+          "subdomains": true,
+          "path": "/share/(?:reel|p)/[^/]+/?",
+          "short": true
+        }
+      ]
+    },
+    {
+      "id": "twitter",
+      "name": "X/Twitter",
+      "experimental": false,
+      "extractors": [
+        "twitter",
+        "twitter:amplify"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "x.com",
+            "twitter.com"
+          ],
+          "subdomains": true,
+          "path": "/(?:[^/]+/status(?:es)?|i/web/status)/[0-9]+(?:/video/[0-9]+)?/?"
+        },
+        {
+          "hosts": [
+            "t.co"
+          ],
+          "path": "/[^/]+/?",
+          "short": true
+        }
+      ]
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook",
+      "experimental": false,
+      "extractors": [
+        "facebook",
+        "facebook:reel"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "facebook.com"
+          ],
+          "subdomains": true,
+          "path": "/(?:reel/[0-9]+|(?:[^/]+/)?videos/(?:[^/]+/)?[0-9]+|[^/]+/posts/[^/]+|watch|(?:video|permalink|story)\\.php)/?"
+        },
+        {
+          "hosts": [
+            "fb.watch"
+          ],
+          "path": "/[^/]+/?",
+          "short": true
+        },
+        {
+          "hosts": [
+            "facebook.com"
+          ],
+          "subdomains": true,
+          "path": "/share/(?:v|r)/[^/]+/?",
+          "short": true
+        }
+      ]
+    },
+    {
+      "id": "twitch",
+      "name": "Twitch",
+      "experimental": false,
+      "extractors": [
+        "twitch:clips",
+        "twitch:vod"
+      ],
+      "rules": [
+        {
+          "hosts": [
+            "twitch.tv"
+          ],
+          "subdomains": true,
+          "path": "/(?:videos/[0-9]+|[^/]+/clip/[^/]+)/?"
+        },
+        {
+          "hosts": [
+            "clips.twitch.tv"
+          ],
+          "path": "/[^/]+/?"
+        }
+      ]
+    }
+  ]
+}

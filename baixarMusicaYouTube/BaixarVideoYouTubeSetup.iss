@@ -6,13 +6,13 @@
 ; Preserve the existing installer identity while changing the visible name.
 AppId=Baixar Música YouTube
 AppName=UIfor_yt-dlp
-AppVersion=3.0.0
+AppVersion=3.3.0
 AppPublisher=Vinícius
 LicenseFile=..\LICENSE
 DefaultDirName={autopf}\BaixarMusicaYouTube
 DefaultGroupName=UIfor_yt-dlp
 OutputDir=Output
-OutputBaseFilename=BaixarMusicaYouTube_Setup_v3
+OutputBaseFilename=BaixarMusicaYouTube_Setup_v3.3
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest

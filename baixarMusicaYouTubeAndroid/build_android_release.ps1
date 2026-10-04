@@ -95,7 +95,7 @@ if (-not (Test-Path -LiteralPath $releaseApk)) {
 
 $outputDir = Join-Path $PSScriptRoot "Output"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
-$finalApk = Join-Path $outputDir "BaixarMusicaYouTube_Android_v3_release.apk"
+$finalApk = Join-Path $outputDir "BaixarMusicaYouTube_Android_v3.3_release.apk"
 Copy-Item -LiteralPath $releaseApk -Destination $finalApk -Force
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem

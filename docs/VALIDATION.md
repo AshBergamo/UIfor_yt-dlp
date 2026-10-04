@@ -1,5 +1,48 @@
 # Validação / Validation
 
+## Conferência para o commit e push da V3.3 — 2026-10-04
+
+O mantenedor autorizou commit e push da expansão e da numeração V3.3. Os 38 candidatos foram revisados: catálogo/fontes, consultas, interface de seleção, conversão WEBM, versões, documentação/capturas e verificações de build/CI. Python/JSON/YAML, links locais, igualdade dos fontes desktop e `git diff --check` passaram. Os 26 testes e os builds Windows/APK conferidos na seção abaixo correspondem aos fontes desta revisão; as edições posteriores são documentais. Binários, cookies, assinatura, caches e ambientes continuam fora do Git. O resultado do GitHub Actions desta revisão será uma verificação posterior ao push; validação local não antecipa aprovação remota.
+
+As menções anteriores a ausência de commit/push registram o estado de cada etapa antes desta autorização.
+
+## V3.3 e relato do teste no celular — 2026-10-04
+
+O mantenedor informou que o aplicativo funcionou no celular. Esse é um relato de teste manual em aparelho real, referente ao APK da expansão entregue antes da mudança do número de versão; não foram detalhados modelo, versão Android, sites, formatos, rotação ou medições. Ele substitui a pendência geral de obter um primeiro teste físico, preservando a necessidade de cobertura por dispositivo/fonte/formato. Os registros anteriores abaixo descrevem o que havia sido comprovado em cada etapa.
+
+O número exibido no rodapé/Sobre passa a **V3.3** nos três aplicativos. Qt declara versão 3.3, Android usa versionName 3.3/versionCode 4, e o instalador Windows declara 3.3.0. A primeira base pública continua sendo v3 na história do projeto. README principal explica novidades, funções, formatos, fontes, uso, plataformas, IA e limites; inglês e descrições específicas acompanham essa informação. Esta revisão altera numeração/documentação, preservando o comportamento de download já testado. Linux gráfico/build atual, Twitch VOD, TikTok e CI remoto continuam com os limites descritos abaixo.
+
+Conferência desta mudança: os 26 testes passaram; fontes desktop idênticos, sintaxe Python/PowerShell/Bash, JSON/YAML, links locais e `git diff --check` aprovados. Novo EXE em `baixarMusicaYouTube/dist/v3.3/baixar_musica_qt.exe`: build limpo, recursos/licenças/ausência de cookies conferidos, janela aberta e fechada com código 0. APK debug recompilado e conferido; aapt confirmou versionName 3.3/versionCode 4, identidade preservada, quatro ABIs e ferramentas/EJS. Android lint: 0 erros e 22 avisos. Logs em `work/tests-v33.log` e `work/build-v33-*.log`. Scripts/nomes de distribuição foram atualizados; instalador Windows, pacote Linux e APK release não foram gerados nesta mudança. Sem commit/push/publicação.
+
+English: the maintainer reported successful phone use of the previously delivered expansion APK; no detailed test matrix was supplied. The app label is now V3.3 across platforms, without changing download behavior. Historical validation below retains the evidence available at each stage.
+
+## Expansão de fontes — 2026-10-04
+
+Instagram, X/Twitter, Facebook, Twitch e TikTok foram integrados aos três aplicativos, preservando YouTube, seis formatos, playlists existentes, temas, fundo/capas e identidade Android. TikTok permanece **experimental**. A tabela registra resultados desta revisão; as seções anteriores preservam o histórico de cada etapa.
+
+| Verificação | Resultado e limite |
+| --- | --- |
+| Regressões desktop | 26 testes passaram. Os dois fontes desktop continuam idênticos. Cobertura inclui 41 casos de links, redirecionamentos limitados, índices com lacunas, seleção/limpeza de post, erro silencioso de prévia, espera de escolha depois de descoberta explícita, falha parcial e ausência de fallback YouTube para HTTP 403 de outros sites. |
+| Conversões e capas | Seis formatos e uma rota adicional H.264/AAC → WEBM passaram com mídia local/FFprobe; WEBM convertido tem VP9/Opus. Seis casos de capa JPEG/WebP/ausente em MP4/MKV passaram, preservando hashes dos streams de áudio/vídeo e sem imagem separada. |
+| Posts locais | Transferências reais pelo servidor HTTP local: segundo item gerou um arquivo, todos geraram três; item intermediário indisponível gerou erro parcial e preservou dois. Títulos iguais produziram nomes diferentes por ID/índice. O HTTP 404 neste teste é intencional. |
+| YouTube | Recorte público sem cookies de `jNQXAC9IVRw`: MP4 de 3,014 s, vídeo/áudio e capa. Os testes locais também preservam playlists e limite GIF de 30 s. |
+| Instagram | Reel `Chunk8-jurw` completo: 4,966667 s, 2.159.577 bytes, capa. Post `BQ0eAlwhDrw`: três vídeos completos de 4,004004 / 6,506507 / 31,698365 s, todos com capa. Seleção do segundo item gerou somente seu MP4 de 31,698365 s. |
+| X/Twitter | Status `719944021058060289` completo: 3,178667 s, 620.539 bytes, capa. |
+| Facebook | Reel `1591316522498163` completo: 21,833333 s, 10.063.774 bytes, capa. Outra amostra antiga falhou na extração; não se promete funcionamento de todos os links. |
+| Twitch | Clip `FaintLightGullWholeWheat` completo: 32,099 s, 16.478.488 bytes, capa. VOD ainda sem amostra real. |
+| TikTok | As duas amostras consultadas falharam com `Unexpected response from webpage request`. Integração aceita o link e apresenta erro legível ao baixar; sucesso de download não comprovado. |
+| Interface Windows | Qt nativo: prévia automática do post Instagram encontrou três vídeos; escolha do segundo, temas claro/escuro, janela compacta e botão Baixar passaram. Download final de 31,698365 s com capa confirmado por FFprobe. Capturas reais em `docs/images/ui-fontes-*.png`. |
+| EXE Windows | Build limpo em `baixarMusicaYouTube/dist/fontes/baixar_musica_qt.exe`. Conferidos catálogo, módulos de consulta/extratores, ferramentas, EJS, QtNetwork/TLS/licenças e ausência de cookies. Consulta real no EXE sem console encontrou os três vídeos por IPC local. Smoke abriu UIfor_yt-dlp e fechou com código 0; neste smoke restaurou preferência de janela não maximizada. |
+| Android host/pacote | Política Java passou os mesmos 41 casos, erros legíveis e filtro de publicação apenas do formato final escolhido. Filtro CPU do fundo passou. assembleDebug/lintDebug passou: 0 erros, 22 avisos não ocultados. APK conferido: quatro ABIs, catálogo, extratores, ferramentas, QuickJS/EJS/licenças e ausência de cookies/material de assinatura. |
+| Limites | Amostras públicas e execução gráfica realizadas no Windows, com yt-dlp 2026.08.19 e FFmpeg/FFprobe 9.0.2, sem cookies pessoais. Não certificam todos os links, regiões, codecs ou conteúdos sem áudio. Android físico, Linux gráfico/build atual, Twitch VOD e instalação limpa continuam pendentes. Android empacota backend 2025.11.12 e tenta atualizar antes do primeiro uso. |
+| GitHub Actions e entrega | CI inclui regressões, conversões/posts locais, política Java, builds e inspeção de recursos. Os testes públicos são optativos, fora do CI. A revisão ainda não rodou no GitHub; nenhum commit, push, instalador novo, release ou publicação de binários foi feito nesta etapa. |
+
+Uma falha inicial no verificador Facebook veio do FFprobe decodificado como cp1252: um título Unicode expôs o erro. O harness passou a ler UTF-8; a aplicação não precisou de alteração por esse diagnóstico. O APK usa `youtube/__init__.py`, e o verificador passou a reconhecer esse pacote, evitando confundi-lo com um extrator ausente. A espera do teste gráfico usa o laço normal de eventos Qt e monitor na thread principal; esperar o worker apenas por chamadas repetidas de QTest bloqueou o harness. Somente os processos desse teste foram encerrados. Em um MP4 Instagram, o incorporador mutagen falhou e o fallback oficial FFmpeg gravou a capa corretamente; nenhuma dependência foi editada.
+
+Reprodução e escopo: [Fontes](SOURCES.md), [Build](BUILD.md). Relatórios/mídia públicos sanitizados em `work/validation/public-sources/` e resultado gráfico em `work/native-source-ui/result.json`, ambos locais e ignorados pelo Git.
+
+English: six sources are integrated, with silent cancellable previews and individual/all selection for multi-video posts. Twenty-six desktop tests, shared Java URL cases, six formats plus H.264/AAC-to-WebM, cover tests, local post transfers, native Windows UI and Windows/Android packaging passed. Complete Windows samples passed for Instagram, X, Facebook and Twitch; TikTok stays experimental after extraction failures. Physical Android, current Linux runtime/build, Twitch VOD, clean installation and hosted CI remain pending. No commit/push or release was made in this stage.
+
 ## Conferência para o commit autorizado — 2026-10-04
 
 O mantenedor autorizou o registro local desta revisão, reunindo nova UI, prévia automática, fundo com thumbnail e capas MP4/MKV. Antes do commit, os quinze testes desktop foram repetidos com sucesso, assim como as seis conversões locais e os testes de capas JPEG/WebP/ausente, preservando os streams de vídeo/áudio. O filtro CPU Android, `pip check`, conferência de recursos do EXE/APK, igualdade dos fontes desktop, links/JSON da documentação e `git diff --check` também passaram. Cookies, binários, caches e material de assinatura ficaram fora dos candidatos ao commit.

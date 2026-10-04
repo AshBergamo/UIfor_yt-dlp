@@ -38,6 +38,7 @@ def build_inputs(project_dir):
     datas = [(str(project_dir / name), ".") for name in ("icon.ico", "pixil-frame-0.png")]
     datas += [(str(repo / "LICENSE"), "licenses"),
               (str(repo / "THIRD_PARTY_NOTICES.md"), "licenses")]
+    datas.append((str(repo / "resources" / "sources.json"), "resources"))
     datas += collect_data_files("yt_dlp_ejs")
     tool_licenses = project_dir / "bin" / "licenses"
     if not tool_licenses.is_dir():

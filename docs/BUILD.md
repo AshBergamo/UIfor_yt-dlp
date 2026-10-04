@@ -13,11 +13,11 @@ powershell -ExecutionPolicy Bypass -File baixarMusicaYouTube/build_windows.ps1
 .\.venv\Scripts\python.exe scripts/check_windows_ui.py
 ```
 
-Saída: `baixarMusicaYouTube/dist/baixar_musica_qt.exe`. Os specs incluem somente ícones, ferramentas, EJS e licenças; **nunca cookies**. Qt usa os hooks do PyInstaller para coletar módulos necessários, sem copiar toda a árvore QML.
+Saída: `baixarMusicaYouTube/dist/baixar_musica_qt.exe`. Os specs incluem ícones, ferramentas, EJS, licenças, o catálogo compartilhado `resources/sources.json` e os módulos de fontes/consulta de metadados; **nunca cookies**. Qt usa os hooks do PyInstaller para coletar módulos necessários, sem copiar toda a árvore QML.
 
 A janela, os atalhos e o instalador agora mostram **UIfor_yt-dlp**. Os nomes de arquivos, diretórios e identidades anteriores foram preservados. O verificador também exige QtNetwork e um backend HTTPS para as miniaturas opcionais.
 
-O helper isola a busca de DLLs Windows durante o build, evitando versões incompatíveis de ferramentas externas no PATH. Ao alterar essa configuração ou reaproveitar um cache antigo, use `--clean` no comando PyInstaller. Confira a abertura da janela do EXE; um processo ativo, sozinho, pode ser apenas um diálogo de erro.
+O helper isola a busca de DLLs Windows durante o build, evitando versões incompatíveis de ferramentas externas no PATH. Ao alterar essa configuração ou reaproveitar um cache antigo, use `--clean` no comando PyInstaller. Confira a abertura da janela do EXE; um processo ativo, sozinho, pode ser apenas um diálogo de erro. As novas fontes consultam metadados em um processo cancelável, com comunicação local Qt; o EXE sem console também usa esse caminho, sem depender de stdout.
 
 Para gerar o instalador, após conferir o executável, use Inno Setup 6:
 
@@ -25,7 +25,7 @@ Para gerar o instalador, após conferir o executável, use Inno Setup 6:
 & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' baixarMusicaYouTube/BaixarVideoYouTubeSetup.iss
 ```
 
-Saída: `baixarMusicaYouTube/Output/BaixarMusicaYouTube_Setup_v3.exe`. O instalador acompanha a GPLv3 e os avisos das ferramentas. Binários locais antigos não são evidência de funcionamento do novo fonte.
+Saída: `baixarMusicaYouTube/Output/BaixarMusicaYouTube_Setup_v3.3.exe`. O instalador acompanha a GPLv3 e os avisos das ferramentas. Binários locais antigos não são evidência de funcionamento do novo fonte.
 
 ## Desktop Linux
 
@@ -48,10 +48,10 @@ O script cria seu ambiente de build Linux, executável e `.tar.gz` em `baixarMus
 Para gerar uma versão separada sem substituir o EXE que está em uso:
 
 ```powershell
-.\.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm --distpath baixarMusicaYouTube/dist/fundo --workpath baixarMusicaYouTube/build baixarMusicaYouTube/baixar_musica_qt.spec
-.\.venv\Scripts\python.exe scripts/check_bundle.py --executable baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe
-.\.venv\Scripts\python.exe scripts/check_windows_ui.py --executable baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe
-& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExecutable=$((Resolve-Path 'baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe').Path)" baixarMusicaYouTube/BaixarVideoYouTubeSetup.iss
+.\.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm --distpath baixarMusicaYouTube/dist/v3.3 --workpath baixarMusicaYouTube/build baixarMusicaYouTube/baixar_musica_qt.spec
+.\.venv\Scripts\python.exe scripts/check_bundle.py --executable baixarMusicaYouTube/dist/v3.3/baixar_musica_qt.exe
+.\.venv\Scripts\python.exe scripts/check_windows_ui.py --executable baixarMusicaYouTube/dist/v3.3/baixar_musica_qt.exe
+& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExecutable=$((Resolve-Path 'baixarMusicaYouTube/dist/v3.3/baixar_musica_qt.exe').Path)" baixarMusicaYouTube/BaixarVideoYouTubeSetup.iss
 ```
 
 Feche a versão anterior antes de usar a nova ou instalar a atualização. O build padrão continua usando `dist/baixar_musica_qt.exe`; `AppExecutable` apenas permite selecionar uma saída alternativa para o instalador.
@@ -64,7 +64,10 @@ Requisitos: JDK 17; Android SDK com `platforms;android-36` e `build-tools;36.0.0
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 .\.venv\Scripts\python.exe scripts/check_android_blur.py
+.\.venv\Scripts\python.exe scripts/check_android_sources.py
 powershell -ExecutionPolicy Bypass -File baixarMusicaYouTubeAndroid/build_android.ps1
+. baixarMusicaYouTubeAndroid/setup_android.ps1
+& baixarMusicaYouTubeAndroid/gradlew.bat -p baixarMusicaYouTubeAndroid --no-daemon --console=plain lintDebug
 .\.venv\Scripts\python.exe scripts/check_apk.py baixarMusicaYouTubeAndroid/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -72,12 +75,24 @@ Linux/macOS, com JAVA_HOME e ANDROID_HOME configurados:
 
 ```bash
 python3 scripts/check_android_blur.py
+python3 scripts/check_android_sources.py
 cd baixarMusicaYouTubeAndroid
 bash build_android.sh
 bash gradlew lintDebug
 ```
 
-Saída: `app/build/outputs/apk/debug/app-debug.apk`. O verificador Python da raiz confere as quatro ABIs, FFmpeg/FFprobe/Python/QuickJS e EJS. O APK debug usa assinatura de desenvolvimento e não substitui automaticamente uma instalação release assinada com outra chave.
+Saída: `app/build/outputs/apk/debug/app-debug.apk`. O verificador Python da raiz confere as quatro ABIs, FFmpeg/FFprobe/Python/QuickJS, EJS, catálogo compartilhado e extratores das seis fontes. O APK debug usa assinatura de desenvolvimento e não substitui automaticamente uma instalação release assinada com outra chave. Os scripts Windows direcionam o cache Gradle a `work/gradle`, salvo configuração explícita de `GRADLE_USER_HOME`.
+
+## Verificar as novas fontes
+
+```text
+python -m unittest discover -s tests -v
+python scripts/validate_media.py
+python scripts/validate_posts.py
+python scripts/check_android_sources.py
+```
+
+O teste de posts usa mídia local gerada pelo comando anterior: seleção do segundo vídeo, todos e preservação de resultados em falha parcial. A política Java de URLs usa os mesmos casos do desktop. GitHub Actions executa essas verificações e os builds, sem publicação automática. Amostras públicas são optativas: `python scripts/validate_sources.py --network`; precisam de rede, transferem recortes de 3 s por padrão e não rodam no CI. Exemplos completos/seleção e limites estão em [SOURCES.md](SOURCES.md).
 
 ## Android release e assinatura
 

@@ -1,10 +1,29 @@
-# UIfor_yt-dlp · v3
+# UIfor_yt-dlp · V3.3
 
 [Português](README.md) · [Build and distribution](docs/BUILD.md) · [Validation](docs/VALIDATION.md)
 
 A graphical interface for downloading and converting media without using a terminal. **yt-dlp** extracts and downloads media; **FFmpeg** converts it. This application is independent and does not modify either dependency's source code.
 
-**The current v3 interface accepts YouTube URLs.** The redesigned UI is implemented; support for other websites is the next stage.
+## What's new in V3.3
+
+V3.3 brings together the renewed UI and source expansion: five new sources, persistent light/dark themes, normal desktop maximization and narrow layouts, automatic title/thumbnail previews, thumbnail backgrounds, MP4/MKV embedded covers, individual/all selection for multi-video posts, partial-result preservation and VP9/Opus WebM conversion when native streams are unavailable. MP4, MP3, WEBM, MKV, GIF and WAV remain available, with GIF intervals limited to 30 seconds.
+
+The maintainer reported that the app worked on a physical Android phone. Device details and a per-site/per-format test matrix were not supplied; this report does not certify every combination. See [Validation](docs/VALIDATION.md).
+
+## Integrated sources
+
+**Integrated sources: YouTube, Instagram, X/Twitter, Facebook, Twitch and experimental TikTok.** This expansion adds individual public media links and preserves existing YouTube playlists.
+
+| Source | Current scope |
+| --- | --- |
+| YouTube | Videos, Shorts and existing playlists |
+| Instagram | Reels and posts containing videos |
+| X/Twitter | Posts containing videos |
+| Facebook | Public videos and reels |
+| Twitch | Clips and recorded videos |
+| TikTok | Individual videos — experimental |
+
+Windows sample downloads passed for Instagram/X/Facebook/Twitch. The maintainer confirmed a successful Android device test. TikTok extraction failed and remains experimental; Twitch VOD, current Linux runtime/build and hosted CI checks remain pending. See [Sources and limits](docs/SOURCES.md) and [Validation](docs/VALIDATION.md).
 
 ## How AI is used
 
@@ -14,23 +33,23 @@ This statement covers this application's code. It does not attribute AI use to y
 
 ## Current features
 
-![Thumbnail background, dark theme — actual Windows capture](docs/images/ui-fundo-escuro.png)
+![Instagram video selection in the dark theme — actual Windows capture](docs/images/ui-fontes-escuro.png)
 
-![Thumbnail background, light theme — actual Windows capture](docs/images/ui-fundo-claro.png)
+![Instagram video selection in the light theme — actual Windows capture](docs/images/ui-fontes-claro.png)
 
 **Light / Dark** themes switch in place and persist between launches, preserving form fields, thumbnails and active work. The status panel displays the original media title and thumbnail when available. A failed thumbnail request keeps the generic placeholder and does not interrupt the download.
 
 The loaded thumbnail also fills the background with a centered proportional crop, soft blur and a blue overlay in dark mode or a pearl overlay in light mode. Panels become translucent while fields, buttons and the small thumbnail stay sharp. The image fades in over 250 ms, stays fixed while scrolling and adapts to the window size. Editing/clearing the URL immediately clears the artwork. Missing thumbnails or failed effects silently retain the gradient and opaque panels. This reuses the existing image request and does not change downloaded files.
 
-MP4/MKV select the best available video and audio and merge/remux them; source codecs vary. MP3 extraction uses a configured 192 kb/s quality. WAV extracts audio. WEBM prefers WEBM streams. GIF supports a segment up to 30 seconds, 15 fps and maximum width of 720 pixels, without audio. Playlist selection and progress reporting are included.
+MP4/MKV select the best available video and audio and merge/remux them; source codecs vary. MP3 extraction uses a configured 192 kb/s quality. WAV extracts audio. WEBM prefers compatible streams and converts to VP9/Opus when needed; conversion can take longer. GIF supports a segment up to 30 seconds, 15 fps and maximum width of 720 pixels, without audio. Existing YouTube playlist selection and progress reporting are included. Multi-video posts have an **All videos** default and individual video choices; the cover follows selection. If the list is discovered only after clicking Download, choose and click again. Files include IDs/indices, and partial failures preserve completed files.
 
 Windows and Linux use separate PySide6 apps with resizable native windows. The first launch is normally maximized, preserving the taskbar/system panels. Subsequent launches restore the previous geometry and maximized state. Narrow windows stack the panels and allow vertical scrolling. There is no immersive full-screen mode.
 
-Android uses the same visual direction, a single column, visible format choices and persistent themes. MediaStore output remains `Downloads/BaixarMusicaYouTube`; the result button opens the last saved file when a compatible app is available. Application identity, signing and existing paths are preserved. The screenshots above show desktop; the APK still needs device validation. Changes do not propagate automatically between platforms.
+Android uses the same visual direction, a single column, visible format choices and persistent themes. MediaStore output remains `Downloads/BaixarMusicaYouTube`; the result button opens the last saved file when a compatible app is available. Application identity, signing and existing paths are preserved. The screenshots above show desktop before the V3.3 label update; the maintainer reported successful phone use. Changes do not propagate automatically between platforms.
 
 New MP4/MKV downloads embed the original thumbnail inside the file without re-encoding video/audio or leaving a separate image. Thumbnails are converted to JPEG when needed. Videos still download if no image is available. WEBM and GIF retain their normal preview; embedded artwork display depends on the file manager/player and its cache. Previously downloaded files are not updated automatically. Artwork uses the [official yt-dlp postprocessors](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/yt_dlp/postprocessor/embedthumbnail.py).
 
-Pasting or typing a complete video URL automatically looks up its title and original thumbnail after a 450 ms pause, before any download. This public lookup uses YouTube oEmbed without API keys or personal cookies. A failed preview stays silent and does not disable downloads; the download backend still obtains its own metadata. Changing or clearing the link discards obsolete responses. Preview supports `watch`, `youtu.be`, Shorts, live and embed links. Playlist-only URLs and private/restricted videos may have no preview.
+Pasting or typing a complete video URL automatically looks up its title and original thumbnail after a 450 ms pause, before any download. YouTube uses public oEmbed; new sources use cancellable yt-dlp metadata requests with a 12-second automatic deadline, without transferring media or using personal cookies. A failed preview stays silent and does not disable downloads; the download backend still obtains its own metadata. Changing or clearing the link discards obsolete responses. YouTube preview supports `watch`, `youtu.be`, Shorts, live and embed links. Playlist-only URLs and private/restricted videos may have no preview.
 
 ## Run on Windows
 

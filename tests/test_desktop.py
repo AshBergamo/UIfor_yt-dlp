@@ -229,7 +229,9 @@ class DesktopRegression(unittest.TestCase):
                 worker.download_erro.connect(window._download_erro)
                 with patch.object(app, "verificar_dependencias", side_effect=RuntimeError("fixture failure")), patch.object(app.QMessageBox, "critical"):
                     worker.run()
-                self.assertEqual(errors, ["fixture failure"])
+                self.assertEqual(len(errors), 1)
+                self.assertIn("fixture failure", errors[0])
+                self.assertIn("Não foi possível", errors[0])
                 self.assertTrue(window.btn_baixar.isEnabled())
                 self.assertTrue(window.combo_formato.isEnabled())
                 self.assertEqual((window.progress_bar.minimum(), window.progress_bar.maximum()), (0, 100))

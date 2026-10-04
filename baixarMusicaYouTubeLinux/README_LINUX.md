@@ -1,4 +1,4 @@
-# UIfor_yt-dlp Linux · v3
+# UIfor_yt-dlp Linux · V3.3
 
 Versão PySide6/yt-dlp mantida nesta pasta. Nova interface com temas claro/escuro persistentes, janela redimensionável e maximização normal que preserva os painéis do sistema. MP4, MP3, WEBM, MKV, GIF e WAV; YouTube nesta etapa. Miniatura original quando disponível, com ícone genérico em caso de falha.
 
@@ -7,6 +7,8 @@ A primeira abertura maximiza a janela; as próximas restauram tamanho/estado. Em
 A thumbnail carregada também vira fundo com desfoque suave, recorte proporcional e camada azul/perolada para o tema. Painéis translúcidos preservam controles nítidos; rolagem e troca de tema reutilizam a cópia preparada. Editar/apagar o link restaura o gradiente e os painéis opacos, sem erro. O efeito usa Qt já instalado, sem consulta adicional e sem depender do compositor Linux.
 
 A produção atual do app é feita principalmente por IA, com orientação humana. Isso se refere ao nosso código e não às dependências. Leia a história completa e as instruções em [README português](../README.md) ou [English README](../README.en.md).
+
+Fontes integradas: YouTube, Instagram, X/Twitter, Facebook, Twitch e TikTok experimental. Prévia automática e seleção individual/todos em posts com vídeos. Veja [fontes e validação](../docs/SOURCES.md); execução gráfica Linux desta expansão permanece pendente.
 
 ## Execução e build
 
@@ -23,7 +25,7 @@ cd baixarMusicaYouTubeLinux
 bash build_linux.sh
 ```
 
-Deno é preparado pelo bootstrap; FFmpeg/FFprobe são copiados do sistema. O build gera `dist/baixar_musica_qt` e `Output/baixar-musica-youtube-linux-v3.tar.gz`, com ícone, instalador por usuário e licenças.
+Deno é preparado pelo bootstrap; FFmpeg/FFprobe são copiados do sistema. O build gera `dist/baixar_musica_qt` e `Output/baixar-musica-youtube-linux-v3.3.tar.gz`, com ícone, instalador por usuário e licenças.
 
 ```bash
 bash install_linux.sh

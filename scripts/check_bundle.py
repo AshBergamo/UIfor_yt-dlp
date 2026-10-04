@@ -14,7 +14,7 @@ archive = CArchiveReader(str(args.executable))
 names = {name.replace("\\", "/") for name in archive.toc}
 suffix = ".exe" if os.name == "nt" else ""
 required = ["bin/" + name + suffix for name in ("ffmpeg", "ffprobe", "deno")]
-required += ["yt_dlp_ejs/yt/solver/core.min.js", "yt_dlp_ejs/yt/solver/lib.min.js", "licenses/LICENSE", "licenses/THIRD_PARTY_NOTICES.md"]
+required += ["resources/sources.json", "yt_dlp_ejs/yt/solver/core.min.js", "yt_dlp_ejs/yt/solver/lib.min.js", "licenses/LICENSE", "licenses/THIRD_PARTY_NOTICES.md"]
 for name in required:
     if name not in names:
         raise SystemExit("Missing resource: " + name)
@@ -24,7 +24,9 @@ pyz_name = next(name for name in archive.toc if name.lower().endswith(".pyz"))
 modules = archive.open_embedded_archive(pyz_name).toc
 if "yt_dlp_ejs.yt.solver" not in modules:
     raise SystemExit("Missing importable EJS solver package")
-for name in ("yt_dlp.postprocessor.embedthumbnail", "yt_dlp.postprocessor.ffmpeg", "mutagen.mp4"):
+for name in ("media_sources", "metadata_ipc", "yt_dlp.extractor.instagram", "yt_dlp.extractor.twitter",
+             "yt_dlp.extractor.facebook", "yt_dlp.extractor.tiktok", "yt_dlp.extractor.twitch",
+             "yt_dlp.postprocessor.embedthumbnail", "yt_dlp.postprocessor.ffmpeg", "mutagen.mp4"):
     if name not in modules:
         raise SystemExit("Missing cover artwork module: " + name)
 if not any(name.startswith("PySide6/QtNetwork.") for name in names):

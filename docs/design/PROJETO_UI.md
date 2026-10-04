@@ -8,7 +8,7 @@ Clarificação do mantenedor: a janela deve **maximizar normalmente**, ocupando 
 
 ## Nome e linguagem
 
-**Nome implementado: UIfor_yt-dlp**, acompanhando o nome do repositório. O título descreve uma interface para o backend; outros sites ainda são objetivo futuro.
+**Nome implementado: UIfor_yt-dlp**, acompanhando o nome do repositório. O título descreve uma interface para o backend. Este documento preserva o projeto visual anterior à expansão; as fontes integradas atualmente estão em [Fontes e limites](../SOURCES.md).
 
 - Linha descritiva: **Vídeos, áudio e GIFs**.
 - Tela principal: **Novo download**.

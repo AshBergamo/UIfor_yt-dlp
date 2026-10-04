@@ -22,15 +22,15 @@ python -m pip install -r ../requirements-build.txt
 python -m PyInstaller --clean --noconfirm baixar_musica_qt_linux.spec
 
 mkdir -p Output
-PACKAGE_DIR="Output/baixar-musica-youtube-linux-v3"
+PACKAGE_DIR="Output/baixar-musica-youtube-linux-v3.3"
 rm -rf "$PACKAGE_DIR"
 mkdir -p "$PACKAGE_DIR"
 cp dist/baixar_musica_qt "$PACKAGE_DIR/"
 cp install_linux.sh README_LINUX.md pixil-frame-0.png "$PACKAGE_DIR/"
 cp ../LICENSE ../THIRD_PARTY_NOTICES.md "$PACKAGE_DIR/"
 cp -r bin/licenses "$PACKAGE_DIR/licenses"
-tar -C Output -czf Output/baixar-musica-youtube-linux-v3.tar.gz baixar-musica-youtube-linux-v3
+tar -C Output -czf Output/baixar-musica-youtube-linux-v3.3.tar.gz baixar-musica-youtube-linux-v3.3
 
 echo "Build concluído:"
 echo "  Executável: dist/baixar_musica_qt"
-echo "  Pacote:     Output/baixar-musica-youtube-linux-v3.tar.gz"
+echo "  Pacote:     Output/baixar-musica-youtube-linux-v3.3.tar.gz"
