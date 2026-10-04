@@ -1,6 +1,10 @@
-# Baixar Música YouTube Linux · base pública v3
+# UIfor_yt-dlp Linux · v3
 
-Versão PySide6/yt-dlp mantida nesta pasta. Janela fixa 980 × 760; MP4, MP3, WEBM, MKV, GIF e WAV; YouTube nesta etapa.
+Versão PySide6/yt-dlp mantida nesta pasta. Nova interface com temas claro/escuro persistentes, janela redimensionável e maximização normal que preserva os painéis do sistema. MP4, MP3, WEBM, MKV, GIF e WAV; YouTube nesta etapa. Miniatura original quando disponível, com ícone genérico em caso de falha.
+
+A primeira abertura maximiza a janela; as próximas restauram tamanho/estado. Em largura menor, formulário e andamento ficam empilhados. O visual usa superfícies e luz internas; não depende de blur do compositor. O fonte desktop atual é igual ao Windows, mas a execução gráfica desta revisão no Linux ainda está pendente.
+
+A thumbnail carregada também vira fundo com desfoque suave, recorte proporcional e camada azul/perolada para o tema. Painéis translúcidos preservam controles nítidos; rolagem e troca de tema reutilizam a cópia preparada. Editar/apagar o link restaura o gradiente e os painéis opacos, sem erro. O efeito usa Qt já instalado, sem consulta adicional e sem depender do compositor Linux.
 
 A produção atual do app é feita principalmente por IA, com orientação humana. Isso se refere ao nosso código e não às dependências. Leia a história completa e as instruções em [README português](../README.md) ou [English README](../README.en.md).
 

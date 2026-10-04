@@ -1,4 +1,4 @@
-name: Validate v3 baseline
+name: Validate UIfor_yt-dlp
 
 on:
   push:
@@ -46,6 +46,9 @@ jobs:
         run: python -m PyInstaller --noconfirm --distpath baixarMusicaYouTubeLinux/dist --workpath baixarMusicaYouTubeLinux/build baixarMusicaYouTubeLinux/baixar_musica_qt_linux.spec
       - name: Check packaged resources
         run: python scripts/check_bundle.py
+      - name: Open packaged Windows UI
+        if: runner.os == 'Windows'
+        run: python scripts/check_windows_ui.py
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: desktop-${{ runner.os }}
@@ -88,6 +91,8 @@ jobs:
             exit 1
           fi
           "$sdkmanager_bin" --sdk_root="$sdk_root" 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Check thumbnail blur
+        run: python scripts/check_android_blur.py
       - name: Build and lint Android
         working-directory: baixarMusicaYouTubeAndroid
         run: |

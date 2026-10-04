@@ -4,7 +4,7 @@
 
 Interface gráfica para baixar e converter mídia sem precisar usar o terminal. O aplicativo usa **yt-dlp** para extração/download e **FFmpeg** para conversão; não é uma distribuição oficial nem modifica o código dessas bibliotecas.
 
-**Nesta base v3, a interface aceita links do YouTube.** Outros sites e uma nova interface fazem parte da próxima etapa, depois do commit desta base.
+**Nesta v3, a interface aceita links do YouTube.** A nova apresentação já está implementada; suporte a outros sites é a próxima etapa.
 
 ## Como a IA participa
 
@@ -14,17 +14,29 @@ Essa declaração se refere ao código deste aplicativo. Não atribuímos uso de
 
 ## O que já existe
 
-![Interface Windows da base v3](docs/images/v3-windows.png)
+![Fundo com thumbnail no tema escuro — captura real no Windows](docs/images/ui-fundo-escuro.png)
+
+![Fundo com thumbnail no tema claro — captura real no Windows](docs/images/ui-fundo-claro.png)
+
+Os temas **Claro / Escuro** mudam dentro do app e ficam salvos para a próxima abertura. A troca preserva campos, miniatura e operação em andamento. Ao digitar ou colar um link de vídeo completo, o app busca automaticamente título e thumbnail após uma pausa de 450 ms, sem iniciar download. A consulta pública usa o oEmbed do YouTube, sem chave ou cookies pessoais. Se ela falhar, o painel mantém o espaço reservado e não mostra erro; o download normal continua disponível e busca seus próprios dados ao ser iniciado. Respostas de links anteriores são descartadas.
+
+Quando a thumbnail carrega, ela também preenche o fundo, com recorte central proporcional, desfoque suave e uma camada azul no escuro ou perolada no claro. Os painéis ficam translúcidos; campos, botões e miniatura permanecem nítidos. O fundo aparece em uma transição de 250 ms, fica fixo ao rolar e se adapta ao tamanho da janela. Editar/apagar o link limpa a imagem imediatamente. Sem thumbnail ou se o efeito falhar, o gradiente e os painéis opacos continuam funcionando, sem aviso de erro. O efeito reutiliza a imagem já obtida, sem consulta adicional ou alteração do arquivo baixado.
+
+A prévia reconhece links `watch`, `youtu.be`, Shorts, live e embed. Listas sem um vídeo identificado e vídeos privados/restritos podem não apresentar prévia; isso não determina se o download será possível. Durante downloads e playlists, o painel acompanha os dados da mídia atual; uma falha de imagem mantém o ícone genérico e o download continua.
+
+Nos novos downloads MP4/MKV, a capa é gravada dentro do arquivo, sem reencodar o vídeo ou o áudio e sem deixar uma imagem separada. A thumbnail é convertida para JPEG quando necessário. Sem imagem disponível, o vídeo continua sendo salvo. WEBM e GIF mantêm sua prévia normal; a exibição da capa incorporada depende do gerenciador de arquivos/player e de seu cache. Arquivos baixados anteriormente não são alterados automaticamente. A incorporação usa os [pós-processadores oficiais do yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/yt_dlp/postprocessor/embedthumbnail.py).
 
 | Formato | Comportamento |
 | --- | --- |
-| MP4 / MKV | Melhor vídeo e áudio disponíveis, com merge/remux; codecs dependem da fonte. |
+| MP4 / MKV | Melhor vídeo e áudio disponíveis, com merge/remux e thumbnail original incorporada como capa quando disponível; codecs dependem da fonte. |
 | MP3 | Extração de áudio com qualidade configurada em 192 kb/s. |
 | WAV | Extração de áudio. |
 | WEBM | Preferência por streams WEBM; disponibilidade depende da fonte. |
 | GIF | Trecho de até 30 segundos, 15 fps, largura máxima de 720 pixels, sem áudio. |
 
-Há seleção de playlist, progresso e indicação de pós-processamento. As versões desktop usam PySide6 e janela fixa de 980 × 760. No Android, os arquivos finais vão para `Downloads/BaixarMusicaYouTube` pelo MediaStore.
+Há seleção de playlist, progresso, indicação de pós-processamento e acesso ao resultado. Windows e Linux usam PySide6: primeira abertura maximizada, barra de título nativa, barra de tarefas/painéis preservados e tamanho/estado restaurados nas próximas aberturas. A janela pode ser redimensionada; em largura menor, os painéis são empilhados com rolagem vertical. Não há modo de tela cheia imersiva.
+
+O Android usa a mesma direção visual, com coluna única, formatos visíveis, temas persistentes e controles de toque. Os arquivos finais continuam em `Downloads/BaixarMusicaYouTube` pelo MediaStore; o botão final abre o último arquivo quando houver aplicativo compatível. Identidade, assinatura e caminhos existentes foram preservados. As capturas acima são do desktop; o APK ainda precisa de conferência em aparelho.
 
 | Plataforma | Projeto | Requisitos |
 | --- | --- | --- |

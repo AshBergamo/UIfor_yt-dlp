@@ -4,7 +4,7 @@
 
 A graphical interface for downloading and converting media without using a terminal. **yt-dlp** extracts and downloads media; **FFmpeg** converts it. This application is independent and does not modify either dependency's source code.
 
-**The current v3 interface accepts YouTube URLs.** A redesigned interface and support for other websites are planned after this baseline is committed.
+**The current v3 interface accepts YouTube URLs.** The redesigned UI is implemented; support for other websites is the next stage.
 
 ## How AI is used
 
@@ -14,11 +14,23 @@ This statement covers this application's code. It does not attribute AI use to y
 
 ## Current features
 
-![Windows interface of the v3 baseline](docs/images/v3-windows.png)
+![Thumbnail background, dark theme — actual Windows capture](docs/images/ui-fundo-escuro.png)
+
+![Thumbnail background, light theme — actual Windows capture](docs/images/ui-fundo-claro.png)
+
+**Light / Dark** themes switch in place and persist between launches, preserving form fields, thumbnails and active work. The status panel displays the original media title and thumbnail when available. A failed thumbnail request keeps the generic placeholder and does not interrupt the download.
+
+The loaded thumbnail also fills the background with a centered proportional crop, soft blur and a blue overlay in dark mode or a pearl overlay in light mode. Panels become translucent while fields, buttons and the small thumbnail stay sharp. The image fades in over 250 ms, stays fixed while scrolling and adapts to the window size. Editing/clearing the URL immediately clears the artwork. Missing thumbnails or failed effects silently retain the gradient and opaque panels. This reuses the existing image request and does not change downloaded files.
 
 MP4/MKV select the best available video and audio and merge/remux them; source codecs vary. MP3 extraction uses a configured 192 kb/s quality. WAV extracts audio. WEBM prefers WEBM streams. GIF supports a segment up to 30 seconds, 15 fps and maximum width of 720 pixels, without audio. Playlist selection and progress reporting are included.
 
-Windows and Linux use separate PySide6 apps with a fixed 980 × 760 window. Android uses Java and saves through MediaStore to `Downloads/BaixarMusicaYouTube`. Changes do not propagate automatically between platforms.
+Windows and Linux use separate PySide6 apps with resizable native windows. The first launch is normally maximized, preserving the taskbar/system panels. Subsequent launches restore the previous geometry and maximized state. Narrow windows stack the panels and allow vertical scrolling. There is no immersive full-screen mode.
+
+Android uses the same visual direction, a single column, visible format choices and persistent themes. MediaStore output remains `Downloads/BaixarMusicaYouTube`; the result button opens the last saved file when a compatible app is available. Application identity, signing and existing paths are preserved. The screenshots above show desktop; the APK still needs device validation. Changes do not propagate automatically between platforms.
+
+New MP4/MKV downloads embed the original thumbnail inside the file without re-encoding video/audio or leaving a separate image. Thumbnails are converted to JPEG when needed. Videos still download if no image is available. WEBM and GIF retain their normal preview; embedded artwork display depends on the file manager/player and its cache. Previously downloaded files are not updated automatically. Artwork uses the [official yt-dlp postprocessors](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/yt_dlp/postprocessor/embedthumbnail.py).
+
+Pasting or typing a complete video URL automatically looks up its title and original thumbnail after a 450 ms pause, before any download. This public lookup uses YouTube oEmbed without API keys or personal cookies. A failed preview stays silent and does not disable downloads; the download backend still obtains its own metadata. Changing or clearing the link discards obsolete responses. Preview supports `watch`, `youtu.be`, Shorts, live and embed links. Playlist-only URLs and private/restricted videos may have no preview.
 
 ## Run on Windows
 

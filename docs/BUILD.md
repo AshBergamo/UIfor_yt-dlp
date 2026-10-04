@@ -10,9 +10,14 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe scripts/setup_tools.py --output-dir baixarMusicaYouTube/bin
 powershell -ExecutionPolicy Bypass -File baixarMusicaYouTube/build_windows.ps1
 .\.venv\Scripts\python.exe scripts/check_bundle.py
+.\.venv\Scripts\python.exe scripts/check_windows_ui.py
 ```
 
 Saída: `baixarMusicaYouTube/dist/baixar_musica_qt.exe`. Os specs incluem somente ícones, ferramentas, EJS e licenças; **nunca cookies**. Qt usa os hooks do PyInstaller para coletar módulos necessários, sem copiar toda a árvore QML.
+
+A janela, os atalhos e o instalador agora mostram **UIfor_yt-dlp**. Os nomes de arquivos, diretórios e identidades anteriores foram preservados. O verificador também exige QtNetwork e um backend HTTPS para as miniaturas opcionais.
+
+O helper isola a busca de DLLs Windows durante o build, evitando versões incompatíveis de ferramentas externas no PATH. Ao alterar essa configuração ou reaproveitar um cache antigo, use `--clean` no comando PyInstaller. Confira a abertura da janela do EXE; um processo ativo, sozinho, pode ser apenas um diálogo de erro.
 
 Para gerar o instalador, após conferir o executável, use Inno Setup 6:
 
@@ -38,6 +43,19 @@ cd ..
 
 O script cria seu ambiente de build Linux, executável e `.tar.gz` em `baixarMusicaYouTubeLinux/Output/`. A instalação por `install_linux.sh` é por usuário, sem sudo. PyInstaller não faz cross-build Windows → Linux. Bibliotecas do sistema/glibc limitam a portabilidade; testar o pacote no sistema de destino.
 
+### Build Windows com o aplicativo aberto
+
+Para gerar uma versão separada sem substituir o EXE que está em uso:
+
+```powershell
+.\.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm --distpath baixarMusicaYouTube/dist/fundo --workpath baixarMusicaYouTube/build baixarMusicaYouTube/baixar_musica_qt.spec
+.\.venv\Scripts\python.exe scripts/check_bundle.py --executable baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe
+.\.venv\Scripts\python.exe scripts/check_windows_ui.py --executable baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe
+& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExecutable=$((Resolve-Path 'baixarMusicaYouTube/dist/fundo/baixar_musica_qt.exe').Path)" baixarMusicaYouTube/BaixarVideoYouTubeSetup.iss
+```
+
+Feche a versão anterior antes de usar a nova ou instalar a atualização. O build padrão continua usando `dist/baixar_musica_qt.exe`; `AppExecutable` apenas permite selecionar uma saída alternativa para o instalador.
+
 ## Android debug
 
 Requisitos: JDK 17; Android SDK com `platforms;android-36` e `build-tools;36.0.0`. Os scripts Windows usam o JDK indicado por JAVA_HOME ou procuram `Program Files/Java/jdk-17`; recusam outra versão. O Gradle pode instalar componentes SDK faltantes quando as licenças já estão aceitas.
@@ -45,6 +63,7 @@ Requisitos: JDK 17; Android SDK com `platforms;android-36` e `build-tools;36.0.0
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+.\.venv\Scripts\python.exe scripts/check_android_blur.py
 powershell -ExecutionPolicy Bypass -File baixarMusicaYouTubeAndroid/build_android.ps1
 .\.venv\Scripts\python.exe scripts/check_apk.py baixarMusicaYouTubeAndroid/app/build/outputs/apk/debug/app-debug.apk
 ```
@@ -52,6 +71,7 @@ powershell -ExecutionPolicy Bypass -File baixarMusicaYouTubeAndroid/build_androi
 Linux/macOS, com JAVA_HOME e ANDROID_HOME configurados:
 
 ```bash
+python3 scripts/check_android_blur.py
 cd baixarMusicaYouTubeAndroid
 bash build_android.sh
 bash gradlew lintDebug

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 APP_ID="baixar-musica-youtube"
-APP_NAME="Baixar Música YouTube"
+APP_NAME="UIfor_yt-dlp"
 SOURCE_BIN="${1:-dist/baixar_musica_qt}"
 INSTALL_DIR="${HOME}/.local/opt/${APP_ID}"
 BIN_DIR="${HOME}/.local/bin"
