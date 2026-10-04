@@ -2,7 +2,7 @@
 
 ## Base pública v3
 
-Organização do repositório, GPLv3, documentação bilíngue e transparência sobre produção por IA; atualização de dependências e empacotamento sem sessões pessoais. Interface e YouTube mantidos. O mantenedor fará o commit/push desta base.
+Organização do repositório, GPLv3, documentação bilíngue e transparência sobre produção por IA; atualização de dependências e empacotamento sem sessões pessoais. Interface e YouTube mantidos. Base registrada pelo mantenedor no commit `b6bc4f6` (2026-10-04). Windows e Linux passaram no CI; o ajuste do workflow Android aguarda nova execução.
 
 ## Depois do commit
 

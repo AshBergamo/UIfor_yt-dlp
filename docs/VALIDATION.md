@@ -14,8 +14,8 @@
 | APK debug Android | Build com AGP 9.4.0/Gradle 9.6.0/JDK 17 passou após atualização transitiva; quatro ABIs e recursos/licenças conferidos. |
 | Android lint | 0 erros, 18 avisos; avisos de SDK/versões mais novas, recursos e textos/tradução. Não foram ocultados. |
 | Android EJS/QuickJS | APK inclui scripts EJS. Bytecode do wrapper confirma configuração automática de QuickJS. Backend yt-dlp embutido é 2025.11.12; atualização em runtime existente usa canal estável. Execução no celular permanece pendente. |
-| Linux | Fonte desktop exercitado nos testes em Windows; scripts conferidos estaticamente. Não foi gerado nem executado um binário Linux neste host Windows; WSL não apresentou distro instalada. |
-| GitHub Actions | YAML/configuração preparados e conferidos; ainda não executados no GitHub, pois commit/push ficam com o mantenedor. |
+| Linux | Testes, conversões e empacotamento passaram no runner Ubuntu 24.04 do GitHub Actions. A abertura gráfica do binário Linux permanece pendente. Não foi gerado nem executado um binário Linux neste host Windows; WSL não apresentou distro instalada. |
+| GitHub Actions | Primeira execução do commit `b6bc4f6`: Windows e Linux passaram; Android falhou no passo SDK/build com código 127. A localização explícita do sdkmanager foi ajustada e precisa ser validada em uma nova execução. |
 | Arquivos para o Git | Cookies, binários, caches, dependências locais e assinatura fora da lista de candidatos. Arquivos locais ignorados preservados; nenhum commit/push feito. |
 
 ## Medições locais
@@ -32,6 +32,14 @@
 A fonte sintética tem seis segundos. O GIF solicitado entre 1 e 3 segundos produziu 2,14 segundos; o teste permite 0,2 segundo de tolerância de frames/timestamps. A validação de entrada mantém o limite de 30 segundos; não prometemos cortes com duração exata em toda fonte.
 
 ## Problemas encontrados e resolvidos
+
+### Primeira execução no GitHub — 2026-10-04
+
+No [workflow da base pública](https://github.com/AshBergamo/UIfor_yt-dlp/actions/runs/37207167389), Windows e Linux concluíram os testes, conversões, builds e conferência de recursos. O Android interrompeu o passo SDK/build com código 127, antes dos passos de inspeção do APK. As anotações públicas não identificam o comando que faltou; o log completo exige login no GitHub.
+
+O workflow agora localiza o `sdkmanager` diretamente no Android SDK, incluindo pastas versionadas de Command-Line Tools, sem depender de sua presença no PATH. A estrutura segue a [documentação do Android SDK](https://developer.android.com/tools/sdkmanager). Preparação do SDK e build têm passos separados para facilitar o diagnóstico. YAML e sintaxe Bash conferidos localmente; a resolução do erro no runner precisa ser confirmada após commit/push.
+
+### Preparação local
 
 - O bootstrap precisou usar `LICENSE.md` do Deno, em vez de `LICENSE`.
 - A fonte MP4 de teste com metadados ao final não funcionou para seek no servidor HTTP simples; gerar a fixture com `+faststart` resolveu. Isso foi uma correção da fixture, não uma mudança da estratégia GIF do app.
@@ -53,4 +61,4 @@ python scripts/check_apk.py baixarMusicaYouTubeAndroid/app/build/outputs/apk/deb
 
 Builds e preparação de ferramentas estão em [BUILD.md](BUILD.md); versões resolvidas em [DEPENDENCIES.md](DEPENDENCIES.md). Os relatórios e mídias de teste ficam em `work/` local, ignorado pelo Git.
 
-English: local desktop regressions, six real conversions, one public cookie-free YouTube download, Windows packaging and Android debug build/lint passed. The Windows native Qt window was checked. Linux binary execution, GitHub-hosted CI, clean installer installation, all DPI settings and physical Android downloads have not been validated. Compilation is not device validation or a full security audit.
+English: local desktop regressions, six real conversions, one public cookie-free YouTube download, Windows packaging and Android debug build/lint passed. The Windows native Qt window was checked. GitHub-hosted Windows and Linux checks passed, including packaging; Android CI failed with exit code 127. The workflow now locates sdkmanager explicitly and separates SDK preparation from the build, but the fix needs a new hosted run. Linux graphical execution, clean installer installation, all DPI settings and physical Android downloads remain pending. Compilation is not device validation or a full security audit.
