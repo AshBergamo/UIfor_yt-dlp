@@ -1,0 +1,15 @@
+* text=auto
+*.py text eol=lf
+*.spec text eol=lf
+*.sh text eol=lf
+gradlew text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.jar binary
+*.ico binary
+*.png binary

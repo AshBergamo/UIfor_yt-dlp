@@ -1,0 +1,45 @@
+# Local dependencies, tools and generated output (keep existing files locally)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+build/
+dist/
+Output/
+work/
+.cache/
+.codex-project-memory/
+.gradle/
+.idea/
+.vscode/
+local.properties
+*.iml
+captures/
+*.exe
+*.dll
+*.so
+*.apk
+*.aab
+ffmpeg
+ffprobe
+deno
+bin/
+ffmpeg-*/
+
+# Authentication and signing material must never be published
+*cookies*.txt
+*cookies*.json
+.env
+.env.*
+release-signing/
+*.jks
+*.keystore
+*.p12
+*.pfx
+keystore.properties
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

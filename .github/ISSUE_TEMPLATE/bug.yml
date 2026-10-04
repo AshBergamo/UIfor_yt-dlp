@@ -1,0 +1,17 @@
+name: Bug / Erro
+description: Relatar um problema reproduzível sem credenciais ou cookies.
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma / Platform
+      options: [Windows, Linux, Android]
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reprodução / Reproduction
+      description: Informe versão, formato, passos, resultado esperado e observado. Não envie cookies, chaves ou dados pessoais.
+    validations:
+      required: true

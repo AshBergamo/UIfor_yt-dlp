@@ -1,0 +1,9 @@
+.venv/
+build/
+dist/
+Output/
+__pycache__/
+*.pyc
+www.youtube.com_cookies.txt
+ffmpeg
+bin/ffmpeg

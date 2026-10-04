@@ -1,0 +1,7 @@
+<resources>
+    <color name="cor_fundo">#0f1115</color>
+    <color name="cor_card">#1a1d23</color>
+    <color name="cor_texto">#e8eaed</color>
+    <color name="cor_vermelho">#ff1f2d</color>
+    <color name="launcher_icon_background">#ffffff</color>
+</resources>

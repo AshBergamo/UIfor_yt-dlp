@@ -1,0 +1,82 @@
+name: Validate v3 baseline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - run: python -m pip install -r requirements-build.txt
+      - run: python -m pip check
+      - name: Tools (Windows)
+        if: runner.os == 'Windows'
+        run: python scripts/setup_tools.py --output-dir baixarMusicaYouTube/bin
+      - name: Tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libegl1 libopengl0 libxcb-cursor0
+          python scripts/setup_tools.py --system-ffmpeg --output-dir baixarMusicaYouTubeLinux/bin
+      - run: python -m unittest discover -s tests -v
+        env:
+          QT_QPA_PLATFORM: offscreen
+          UIFOR_YTDLP_COOKIES: ''
+      - run: python scripts/validate_media.py
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller --noconfirm --distpath baixarMusicaYouTube/dist --workpath baixarMusicaYouTube/build baixarMusicaYouTube/baixar_musica_qt.spec
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        run: python -m PyInstaller --noconfirm --distpath baixarMusicaYouTubeLinux/dist --workpath baixarMusicaYouTubeLinux/build baixarMusicaYouTubeLinux/baixar_musica_qt_linux.spec
+      - name: Check packaged resources
+        run: python scripts/check_bundle.py
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: desktop-${{ runner.os }}
+          path: |
+            baixarMusicaYouTube/dist/
+            baixarMusicaYouTubeLinux/dist/
+            work/validation/
+          retention-days: 7
+
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.11'
+      - name: SDK and build
+        working-directory: baixarMusicaYouTubeAndroid
+        run: |
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          bash gradlew --no-daemon --console plain assembleDebug lintDebug
+      - name: Check native tools and EJS
+        run: python scripts/check_apk.py baixarMusicaYouTubeAndroid/app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: android-debug
+          path: |
+            baixarMusicaYouTubeAndroid/app/build/outputs/apk/debug/app-debug.apk
+            baixarMusicaYouTubeAndroid/app/build/reports/lint-results-debug.*
+          retention-days: 7

@@ -1,0 +1,85 @@
+plugins {
+    id "com.android.application"
+}
+
+def keystorePropertiesFile = rootProject.file("release-signing/keystore.properties")
+def keystoreProperties = new Properties()
+def releaseSigningReady = false
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+    releaseSigningReady = keystoreProperties["storeFile"] &&
+            keystoreProperties["storePassword"] &&
+            keystoreProperties["keyAlias"] &&
+            keystoreProperties["keyPassword"]
+}
+
+android {
+    namespace "com.aipytorch.baixarmusicayoutube"
+    compileSdk 36
+    sourceSets {
+        main.assets.srcDir(layout.buildDirectory.dir("generated/licenseAssets").get().asFile)
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile rootProject.file(keystoreProperties["storeFile"])
+                storePassword keystoreProperties["storePassword"]
+                keyAlias keystoreProperties["keyAlias"]
+                keyPassword keystoreProperties["keyPassword"]
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId "com.aipytorch.baixarmusicayoutube"
+        minSdk 29
+        targetSdk 35
+        versionCode 3
+        versionName "3.0-android"
+
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a", "x86_64", "x86"
+        }
+    }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+}
+
+def prepareLicenseAssets = tasks.register("prepareLicenseAssets", Copy) {
+    from(rootProject.projectDir.parentFile) {
+        include "LICENSE", "THIRD_PARTY_NOTICES.md"
+    }
+    into(layout.buildDirectory.dir("generated/licenseAssets/licenses"))
+}
+tasks.named("preBuild").configure { dependsOn(prepareLicenseAssets) }
+
+dependencies {
+    def youtubedlAndroid = "0.18.1"
+    implementation "io.github.junkfood02.youtubedl-android:library:$youtubedlAndroid"
+    implementation "io.github.junkfood02.youtubedl-android:ffmpeg:$youtubedlAndroid"
+    // Keep the wrapper unchanged while updating its older transitive libraries.
+    implementation platform("com.fasterxml.jackson:jackson-bom:2.22.3")
+    constraints {
+        implementation("commons-io:commons-io:2.22.0") {
+            because "Replace the wrapper's 2.5 baseline with the maintained Java 8 compatible release"
+        }
+        implementation("org.apache.commons:commons-compress:1.28.0") {
+            because "Replace 1.12, which predates upstream ZIP/TAR security fixes"
+        }
+        implementation("androidx.appcompat:appcompat:1.7.1")
+        implementation("androidx.core:core-ktx:1.17.0")
+    }
+}
