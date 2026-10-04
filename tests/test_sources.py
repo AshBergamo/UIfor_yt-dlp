@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, QSettings
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 import media_sources as sources
@@ -87,6 +87,11 @@ class PostUITests(unittest.TestCase):
     def setUpClass(cls):
         cls.qt = QApplication.instance() or QApplication([])
 
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.settings = QSettings(str(Path(directory.name) / "ui.ini"), QSettings.Format.IniFormat)
+
     def test_select_second_all_and_clear_on_edit(self):
         for folder in ("baixarMusicaYouTube", "baixarMusicaYouTubeLinux"):
             spec = importlib.util.spec_from_file_location("source_ui_" + folder, ROOT / folder / "baixar_musica_qt.py")
@@ -102,7 +107,7 @@ class PostUITests(unittest.TestCase):
                 def start(self): pass
                 def cancel(self): self.cancelled = True
             with patch.object(app, "MetadataLookup", Lookup):
-                window = app.JanelaPrincipal()
+                window = app.JanelaPrincipal(self.settings)
                 try:
                     window.input_url.setText("https://instagram.com/p/ABC/")
                     window._preview_timer.stop()
@@ -143,7 +148,7 @@ class PostUITests(unittest.TestCase):
             def start(self): QTimer.singleShot(0, lambda: self.failed.emit("fixture unavailable"))
             def cancel(self): pass
         with patch.object(app, "MetadataLookup", Lookup):
-            window = app.JanelaPrincipal()
+            window = app.JanelaPrincipal(self.settings)
             try:
                 window.input_url.setText("https://instagram.com/p/ABC/")
                 window._preview_timer.stop(); window._buscar_previa(); QTest.qWait(10)
@@ -166,7 +171,7 @@ class PostUITests(unittest.TestCase):
                     {"index": 1, "title": "First"}, {"index": 2, "title": "Second"}]}))
             def cancel(self): pass
         with patch.object(app, "MetadataLookup", Lookup):
-            window = app.JanelaPrincipal()
+            window = app.JanelaPrincipal(self.settings)
             try:
                 window.input_url.setText("https://instagram.com/p/ABC/")
                 window._preview_timer.stop()

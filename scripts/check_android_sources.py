@@ -1,19 +1,17 @@
 """Check Android URL policy against the same catalog/cases as desktop."""
 import json
-import os
 from pathlib import Path
-import shutil
 import subprocess
+
+if __package__:
+    from .java_support import java_tools
+else:
+    from java_support import java_tools
 
 ROOT = Path(__file__).resolve().parents[1]
 
 def main():
-    suffix = ".exe" if os.name == "nt" else ""
-    java_home = os.environ.get("JAVA_HOME")
-    javac = str(Path(java_home) / "bin" / ("javac" + suffix)) if java_home else shutil.which("javac")
-    if not javac or not Path(javac).is_file():
-        raise SystemExit("JDK required: set JAVA_HOME.")
-    java = Path(javac).resolve().with_name("java" + suffix)
+    javac, java = java_tools("JDK required: set JAVA_HOME.")
     output = ROOT / "work/android-source-check"
     output.mkdir(parents=True, exist_ok=True)
     catalog = json.loads((ROOT / "resources/sources.json").read_text(encoding="utf-8"))

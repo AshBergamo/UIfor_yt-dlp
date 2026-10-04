@@ -46,6 +46,7 @@ class DesktopRegression(unittest.TestCase):
         video_id = 'jNQXAC9IVRw'
         expected = f'https://www.youtube.com/watch?v={video_id}'
         for app in APPS:
+            self.assertEqual(app.normalizar_url(url=f' youtu.be/{video_id} '), f'https://youtu.be/{video_id}')
             for link in [expected + '&list=example&t=2', f'youtu.be/{video_id}?si=test',
                          f'https://m.youtube.com/shorts/{video_id}', f'https://youtube.com/live/{video_id}',
                          f'https://www.youtube.com/embed/{video_id}']:
@@ -240,6 +241,60 @@ class DesktopRegression(unittest.TestCase):
                     window._atualizar_opcoes_formato()
                     self.assertEqual(not window._opcoes_gif.isHidden(), kind == "gif")
                 window.close()
+
+    def test_remux_options_preserve_routes_covers_and_independent_state(self):
+        cases = [
+            ("mp4", "bestvideo*+bestaudio/best", "mp4", None),
+            ("mp4_android_vr", "bestvideo*+bestaudio/best", "mp4", {"youtube": {"player_client": ["android_vr"]}}),
+            ("mp4_compat", "best[ext=mp4]/best", "mp4", None),
+            ("mkv", "bestvideo*+bestaudio/best", "mkv", None),
+        ]
+        metadata = {"videos": [{"index": 2}, {"index": 4}]}
+        for app in APPS:
+            with patch.dict(os.environ, {"UIFOR_YTDLP_COOKIES": ""}):
+                options_by_route = {}
+                for kind, selector, container, extractor_args in cases:
+                    with self.subTest(app=app.__name__, route=kind):
+                        options = app.criar_opcoes_download(kind, "output", None, False)
+                        options_by_route[kind] = options
+                        self.assertEqual(options["format"], selector)
+                        self.assertEqual(options["merge_output_format"], container)
+                        self.assertEqual(options["outtmpl"], str(Path("output") / "%(title)s.%(ext)s"))
+                        self.assertEqual(options["postprocessors"], [
+                            {"key": "FFmpegVideoRemuxer", "preferedformat": container},
+                            {"key": "FFmpegThumbnailsConvertor", "format": "jpg", "when": "before_dl"},
+                            {"key": "EmbedThumbnail", "already_have_thumbnail": False},
+                        ])
+                        self.assertTrue(options["writethumbnail"])
+                        if extractor_args is None:
+                            self.assertNotIn("extractor_args", options)
+                        else:
+                            self.assertEqual(options["extractor_args"], extractor_args)
+
+                        selected = app.criar_opcoes_download(kind, "output", None, True,
+                                                            post_metadata=metadata, selected_video=4)
+                        self.assertEqual(selected["playlist_items"], "4")
+                        self.assertTrue(selected["noplaylist"])
+                        self.assertFalse(selected["ignoreerrors"])
+                        self.assertEqual(selected["outtmpl"], str(Path("output") / "%(id)s-%(playlist_index|1)s-%(title).150B.%(ext)s"))
+
+                # Mutating one download must not affect another route or call.
+                options_by_route["mp4"]["postprocessors"][0]["preferedformat"] = "fixture"
+                options_by_route["mp4"]["postprocessors"][1]["format"] = "fixture"
+                options_by_route["mp4"]["postprocessors"][2]["already_have_thumbnail"] = True
+                options_by_route["mp4_android_vr"]["extractor_args"]["youtube"]["player_client"].append("fixture")
+                for kind, _, container, extractor_args in cases:
+                    with self.subTest(app=app.__name__, fresh_route=kind):
+                        fresh = app.criar_opcoes_download(kind, "output", None, False)
+                        self.assertEqual(fresh["postprocessors"][0]["preferedformat"], container)
+                        self.assertEqual(fresh["postprocessors"][1]["format"], "jpg")
+                        self.assertFalse(fresh["postprocessors"][2]["already_have_thumbnail"])
+                        if extractor_args is None:
+                            self.assertNotIn("extractor_args", fresh)
+                        else:
+                            self.assertEqual(fresh["extractor_args"], extractor_args)
+                        if kind != "mp4":
+                            self.assertEqual(options_by_route[kind]["postprocessors"][0]["preferedformat"], container)
 
     def test_theme_preserves_form_and_active_progress_and_persists(self):
         for app in APPS:

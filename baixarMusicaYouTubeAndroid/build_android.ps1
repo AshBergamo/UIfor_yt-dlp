@@ -2,14 +2,6 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 . (Join-Path $PSScriptRoot 'setup_android.ps1')
 
-if (-not $env:ANDROID_HOME) {
-    $defaultSdk = Join-Path $env:LOCALAPPDATA "Android\Sdk"
-    if (Test-Path -LiteralPath $defaultSdk) {
-        $env:ANDROID_HOME = $defaultSdk
-        $env:ANDROID_SDK_ROOT = $defaultSdk
-    }
-}
-
 if (-not (Test-Path -LiteralPath ".\gradlew.bat")) {
     throw "gradlew.bat não encontrado. Abra esta pasta no Android Studio ou adicione o Gradle Wrapper."
 }

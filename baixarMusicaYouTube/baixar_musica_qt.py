@@ -28,7 +28,8 @@ except ImportError:
 if not getattr(sys, "frozen", False):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from media_sources import (classify_url, resolve_url, SOURCE_HELP, EXTRACTORS,
-                           selection_options, media_filter, friendly_error)
+                           selection_options, media_filter, friendly_error,
+                           normalize_url)
 from metadata_ipc import MetadataLookup, run_helper
 
 ARQUIVO_ICONE = "pixil-frame-0.png"
@@ -108,10 +109,7 @@ def caminho_icone():
 
 
 def normalizar_url(url):
-    url = url.strip()
-    if url and "://" not in url:
-        url = f"https://{url}"
-    return url
+    return normalize_url(url)
 
 
 def url_do_youtube(url):
@@ -287,38 +285,26 @@ def criar_opcoes_download(
         postprocessor_hook=postprocessor_hook,
         playlist=playlist,
     )
+    opcoes["outtmpl"] = str(pasta_destino / "%(title)s.%(ext)s")
     if formato in {"mp3", "wav"}:
         opcoes.update({
             "format": "bestaudio/best",
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
             "postprocessors": [{
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": formato,
                 "preferredquality": "192" if formato == "mp3" else "0",
             }],
         })
-    elif formato == "mp4":
+    elif formato in {"mp4", "mp4_android_vr", "mp4_compat", "mkv"}:
+        container = "mkv" if formato == "mkv" else "mp4"
+        remuxer = POS_PROCESSADOR_MKV if container == "mkv" else POS_PROCESSADOR_MP4
         opcoes.update({
-            "format": FORMATO_MELHOR_QUALIDADE,
-            "merge_output_format": "mp4",
-            "postprocessors": [POS_PROCESSADOR_MP4.copy()],
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
+            "format": "best[ext=mp4]/best" if formato == "mp4_compat" else FORMATO_MELHOR_QUALIDADE,
+            "merge_output_format": container,
+            "postprocessors": [remuxer.copy()],
         })
-    elif formato == "mp4_android_vr":
-        opcoes.update({
-            "format": FORMATO_MELHOR_QUALIDADE,
-            "merge_output_format": "mp4",
-            "postprocessors": [POS_PROCESSADOR_MP4.copy()],
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
-            "extractor_args": {"youtube": {"player_client": ["android_vr"]}},
-        })
-    elif formato == "mp4_compat":
-        opcoes.update({
-            "format": "best[ext=mp4]/best",
-            "merge_output_format": "mp4",
-            "postprocessors": [POS_PROCESSADOR_MP4.copy()],
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
-        })
+        if formato == "mp4_android_vr":
+            opcoes["extractor_args"] = {"youtube": {"player_client": ["android_vr"]}}
     elif formato == "webm":
         opcoes.update({
             "format": "bestvideo[ext=webm]+bestaudio[ext=webm]/best[ext=webm]/bestvideo*+bestaudio/best",
@@ -327,14 +313,6 @@ def criar_opcoes_download(
             "postprocessor_args": {"videoconvertor+ffmpeg_o": [
                 "-c:v", "libvpx-vp9", "-crf", "32", "-b:v", "0", "-cpu-used", "4",
                 "-c:a", "libopus"]},
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
-        })
-    elif formato == "mkv":
-        opcoes.update({
-            "format": FORMATO_MELHOR_QUALIDADE,
-            "merge_output_format": "mkv",
-            "postprocessors": [POS_PROCESSADOR_MKV.copy()],
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
         })
     elif formato == "gif":
         inicio_gif, fim_gif = validar_intervalo_gif(inicio_gif, fim_gif)
@@ -343,7 +321,6 @@ def criar_opcoes_download(
         opcoes.update({
             "format": "bestvideo[height<=720]/bestvideo/best",
             "download_ranges": download_range_func([], [(inicio_gif, fim_gif)]),
-            "outtmpl": str(pasta_destino / "%(title)s.%(ext)s"),
             "postprocessors": [{
                 "key": "FFmpegVideoConvertor",
                 "preferedformat": "gif",
@@ -454,10 +431,8 @@ class DownloadWorker(QObject):
                         prefixo = "Playlist · mídia atual · "
 
                 if status == "downloading":
-                    total = dados.get("total_bytes") or dados.get("total_bytes_estimate") or 0
-                    baixado = dados.get("downloaded_bytes") or 0
-                    if total > 0:
-                        porcentagem = baixado / total * 100
+                    if total_bytes > 0:
+                        porcentagem = downloaded / total_bytes * 100
                         texto = f"{prefixo}Baixando... {porcentagem:.1f}%"
                         self.progresso_atualizado.emit(texto, int(porcentagem), 100)
                     else:

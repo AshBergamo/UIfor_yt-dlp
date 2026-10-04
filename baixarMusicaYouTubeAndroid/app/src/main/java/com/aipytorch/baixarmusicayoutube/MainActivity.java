@@ -38,7 +38,6 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
 import com.yausername.youtubedl_android.YoutubeDLRequest;
 import org.json.JSONObject;
@@ -484,7 +483,7 @@ public class MainActivity extends Activity {
     private void startDownload() {
         if (working) return;
         errorText.setVisibility(View.GONE);
-        String url = normalizeUrl(inputUrl.getText().toString());
+        String url = SourcePolicy.normalize(inputUrl.getText().toString());
         SourcePolicy.Match source = sourcePolicy.classify(url);
         if (source == null) { showError("Informe um link de vídeo de uma das fontes aceitas. Perfis, stories e outras fontes ficam para uma próxima etapa."); inputUrl.requestFocus(); return; }
         String format = selectedFormat();
@@ -519,7 +518,7 @@ public class MainActivity extends Activity {
                 deleteTree(workDir);
                 if (!workDir.mkdirs() && !workDir.isDirectory()) throw new IllegalStateException("Não foi possível preparar a pasta temporária.");
                 YoutubeDLRequest request = buildRequest(downloadUrl, format, workDir, playlist, finalGifStart, finalGifEnd, capturedPost, capturedSelection);
-                updateStatus("Lendo informações da mídia…", true);
+                updateStatus("Lendo informações da mídia…");
                 String processId = "download-" + System.currentTimeMillis();
                 Exception transferError = null;
                 try {
@@ -536,13 +535,13 @@ public class MainActivity extends Activity {
                             buttonDownload.setText("Baixando…");
                         });
                     } else if (line != null && line.startsWith("[EmbedThumbnail]")) {
-                        updateStatus("Incorporando a capa original ao vídeo…", true);
+                        updateStatus("Incorporando a capa original ao vídeo…");
                     } else if (line != null && line.startsWith("[ThumbnailsConvertor]")) {
-                        updateStatus("Preparando a capa original…", true);
+                        updateStatus("Preparando a capa original…");
                     } else if (line != null && (line.startsWith("[Merger]") || line.startsWith("[Video") || line.startsWith("[ExtractAudio]") || line.startsWith("size="))) {
-                        updateStatus("Convertendo a mídia…", true);
+                        updateStatus("Convertendo a mídia…");
                     } else if (line != null && line.startsWith("[download]")) {
-                        updateStatus("Baixando a mídia atual…", true);
+                        updateStatus("Baixando a mídia atual…");
                     }
                     return Unit.INSTANCE;
                 });
@@ -558,7 +557,7 @@ public class MainActivity extends Activity {
                 Uri savedUri = null;
                 String savedMime = null;
                 for (File output : outputs) {
-                    updateStatus("Salvando " + output.getName(), true);
+                    updateStatus("Salvando " + output.getName());
                     savedMime = mimeFor(output);
                     savedUri = publishToDownloads(output, output.getName(), savedMime);
                     savedCount++;
@@ -599,7 +598,7 @@ public class MainActivity extends Activity {
 
     private String previewVideoUrl(String input) {
         try {
-            String normalized = normalizeUrl(input);
+            String normalized = SourcePolicy.normalize(input);
             Uri uri = Uri.parse(normalized);
             if (!("https".equals(uri.getScheme()) || "http".equals(uri.getScheme())) || !isYoutubeUrl(normalized)) return "";
             List<String> parts = uri.getPathSegments();
@@ -850,11 +849,11 @@ public class MainActivity extends Activity {
         applyTheme();
     }
 
-    private void updateStatus(String message, boolean indeterminate) {
+    private void updateStatus(String message) {
         ui(() -> {
             statusText.setText(message);
-            progressBar.setIndeterminate(indeterminate);
-            if (indeterminate) percentage.setText("…");
+            progressBar.setIndeterminate(true);
+            percentage.setText("…");
             if (working) buttonDownload.setText("Processando…");
         });
     }
@@ -883,7 +882,7 @@ public class MainActivity extends Activity {
     }
 
     private void ensureDownloaderReady() throws Exception {
-        MediaMetadata.prepare(getApplicationContext(), message -> updateStatus(message, true));
+        MediaMetadata.prepare(getApplicationContext(), this::updateStatus);
     }
 
     private void lookupPostExplicit(String url) {
@@ -895,7 +894,7 @@ public class MainActivity extends Activity {
         previewHandler.postDelayed(timeout, 45000);
         executor.execute(() -> {
             try {
-                MediaMetadata.Post info = job.lookup(getApplicationContext(), sourcePolicy, url, message -> updateStatus(message, true));
+                MediaMetadata.Post info = job.lookup(getApplicationContext(), sourcePolicy, url, this::updateStatus);
                 ui(() -> {
                     setWorking(false, "Escolha um vídeo ou todos e clique em Baixar.");
                     acceptPostInfo(info);
@@ -1045,16 +1044,7 @@ public class MainActivity extends Activity {
     private List<File> listOutputFiles(File workDir, String format) {
         List<File> files = new ArrayList<>();
         collectFiles(workDir, files);
-        files.removeIf(file -> {
-            String name = file.getName().toLowerCase(Locale.ROOT);
-            return !SourcePolicy.finalOutput(name, format)
-                    || name.contains(".temp.")
-                    || name.endsWith(".part")
-                    || name.endsWith(".ytdl")
-                    || name.endsWith(".temp")
-                    || name.endsWith(".tmp")
-                    || file.length() <= 0;
-        });
+        files.removeIf(file -> !SourcePolicy.finalOutput(file.getName(), format) || file.length() <= 0);
         files.sort((left, right) -> left.getName().compareToIgnoreCase(right.getName()));
         return files;
     }
@@ -1105,14 +1095,6 @@ public class MainActivity extends Activity {
         values.put(MediaStore.MediaColumns.IS_PENDING, 0);
         resolver.update(uri, values, null, null);
         return uri;
-    }
-
-    private String normalizeUrl(String url) {
-        String value = url == null ? "" : url.trim();
-        if (!value.isEmpty() && !value.contains("://")) {
-            value = "https://" + value;
-        }
-        return value;
     }
 
     private boolean isYoutubeUrl(String url) {
