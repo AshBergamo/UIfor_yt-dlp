@@ -7,6 +7,7 @@ __pycache__/
 build/
 dist/
 Output/
+/outputs/
 work/
 .cache/
 .codex-project-memory/

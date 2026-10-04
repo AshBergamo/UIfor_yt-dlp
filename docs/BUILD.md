@@ -96,7 +96,62 @@ O teste de posts usa mídia local gerada pelo comando anterior: seleção do seg
 
 ## Android release e assinatura
 
-`build_android_release.ps1` mantém o fluxo existente: lê `release-signing/keystore.properties` e, na primeira execução sem configuração, cria material local de assinatura. Guarde essa pasta fora do Git; mudar/perder a chave impede atualizar instalações existentes. Esta preparação valida APK debug e não executa o script de release nem troca a assinatura do app.
+`build_android_release.ps1` mantém o fluxo existente: lê `release-signing/keystore.properties` e, na primeira execução sem configuração, cria material local de assinatura. Guarde essa pasta fora do Git; mudar/perder a chave impede atualizar instalações existentes. A compilação debug não valida a assinatura release: confira também o APK release com apksigner e o verificador de recursos.
+
+## Reunir instaladores em outputs
+
+`outputs/` é uma pasta local ignorada pelo Git para os arquivos que o mantenedor poderá anexar a uma release. Código, licenças e ferramentas de empacotamento continuam versionados; os comandos abaixo não publicam releases.
+
+| Plataforma | Arquivo |
+| --- | --- |
+| Windows x64 | `outputs/UIfor_yt-dlp-v3.3-windows-x64-setup.exe` |
+| Android 10+ | `outputs/UIfor_yt-dlp-v3.3-android-release.apk` |
+| Linux x86_64 | `outputs/UIfor_yt-dlp-v3.3-linux-x86_64.tar.gz` |
+
+Windows, após compilar/conferir o EXE selecionado:
+
+```powershell
+New-Item -ItemType Directory -Path outputs -Force | Out-Null
+& 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExecutable=$((Resolve-Path 'baixarMusicaYouTube/dist/audit/baixar_musica_qt.exe').Path)" "/O$((Resolve-Path 'outputs').Path)" '/FUIfor_yt-dlp-v3.3-windows-x64-setup' baixarMusicaYouTube/BaixarVideoYouTubeSetup.iss
+```
+
+`dist/audit` é a saída separada validada na auditoria. Para builds futuros, ajuste AppExecutable para o EXE recém-compilado. O instalador conserva identidade, atalhos e licenças. Sem certificado de assinatura Windows configurado, o setup permanece sem Authenticode.
+
+Android, usando a chave release existente:
+
+```powershell
+New-Item -ItemType Directory -Path outputs -Force | Out-Null
+$env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+Push-Location
+try {
+    & .\baixarMusicaYouTubeAndroid\build_android_release.ps1
+} finally {
+    Pop-Location
+}
+Copy-Item baixarMusicaYouTubeAndroid/Output/BaixarMusicaYouTube_Android_v3.3_release.apk outputs/UIfor_yt-dlp-v3.3-android-release.apk
+.\.venv\Scripts\python.exe scripts/check_apk.py outputs/UIfor_yt-dlp-v3.3-android-release.apk
+```
+
+Verifique também a assinatura com apksigner e a versão com aapt. APK release usa a identidade/chave existente; APK debug tem outra assinatura e não pode ser atualizado diretamente por esse arquivo. Nunca inclua a pasta release-signing no pacote ou no Git.
+
+Linux precisa ser compilado em Linux. Depois do build e de `scripts/check_bundle.py`, a partir da raiz:
+
+```bash
+python scripts/package_linux.py
+```
+
+O pacote contém o executável, `install_linux.sh`, ícone, README, GPLv3 e avisos/licenças das ferramentas. A instalação é por usuário:
+
+```bash
+tar -xzf UIfor_yt-dlp-v3.3-linux-x86_64.tar.gz
+cd UIfor_yt-dlp-v3.3-linux-x86_64
+bash install_linux.sh
+```
+
+O job Linux do GitHub Actions gera e disponibiliza esse `.tar.gz` como artefato separado `Linux-package`, sem publicação automática. É possível baixar esse artefato para `outputs/` quando o host Windows não possui ambiente Linux. O runner é Ubuntu 24.04; bibliotecas do sistema/glibc limitam a compatibilidade e o pacote deve ser testado na distribuição de destino. Não se trata de build ARM64, DEB ou RPM.
+
+Na entrega local, `LEIA-ME.md`, `build-info.json` e `SHA256SUMS.txt` documentam origem, assinatura, validação e hashes. Os hashes devem ser recalculados ao regenerar qualquer instalador. Instalação limpa Windows, atualização Android e execução gráfica Linux continuam verificações distintas dos builds/inspeções.
 
 ## Conferência antes de distribuir
 

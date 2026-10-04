@@ -47,6 +47,17 @@ jobs:
         run: python -m PyInstaller --noconfirm --distpath baixarMusicaYouTubeLinux/dist --workpath baixarMusicaYouTubeLinux/build baixarMusicaYouTubeLinux/baixar_musica_qt_linux.spec
       - name: Check packaged resources
         run: python scripts/check_bundle.py
+      - name: Create Linux installer package
+        if: runner.os == 'Linux'
+        run: python scripts/package_linux.py
+      - name: Upload Linux installer package
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Linux-package
+          path: outputs/UIfor_yt-dlp-v3.3-linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
       - name: Open packaged Windows UI
         if: runner.os == 'Windows'
         run: python scripts/check_windows_ui.py
